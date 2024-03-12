@@ -17,5 +17,5 @@ setup(
     description="",
     license="MIT",
     keywords="",
-    url="",
+    url="https://github.com/rnilva/expedantic",
 )
