@@ -1,7 +1,6 @@
 import inspect
 from typing import Any, Type
 
-import numpy as np
 from tap.utils import type_to_str, get_literals
 
 
