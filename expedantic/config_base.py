@@ -35,7 +35,7 @@ class ConfigBase(pydantic.BaseModel):
         arg_keys -= set(exclusive_keys)
         return {k: v for k, v in fields.items() if k in arg_keys}
 
-    def save(
+    def save_as_yaml(
         self,
         file: Path | str | IOBase,
         default_flow_style: bool | None = False,
@@ -92,12 +92,12 @@ class ConfigBase(pydantic.BaseModel):
         print(f"JSON Schema for {cls.__name__} is generated at {path}")
 
     @classmethod
-    def load(cls, path: Path | str):
+    def load_from_yaml(cls, path: Path | str):
         path = Path(path)
         return pydantic_yaml.parse_yaml_file_as(cls, path)
 
     @classmethod
-    def parse_args(cls, args=None, sep="."):
+    def parse_args(cls, require_default_file: bool = False, args=None, sep="."):
         def _parse_params(
             parser: argparse.ArgumentParser,
             cls: Type[ConfigBase],
@@ -139,24 +139,33 @@ class ConfigBase(pydantic.BaseModel):
 
                 if field_info.is_required():
                     req_repr = "required"
+                    if not require_default_file:
+                        kwargs["default"] = _NOT_PROVIDED
                 else:
                     default_value = field_info.get_default(call_default_factory=True)
                     req_repr = f"default={default_value}"
+                    if not require_default_file:
+                        kwargs["default"] = default_value
 
                 kwargs["help"] = f"({annot_repr}, {req_repr})"
 
-                kwargs["default"] = _NOT_PROVIDED
+                if require_default_file:
+                    kwargs["default"] = _NOT_PROVIDED
 
                 parser.add_argument(*names, **kwargs)
 
         parser = argparse.ArgumentParser()
-        parser.add_argument("_config_file_path", type=Path, help="")
+        if require_default_file:
+            parser.add_argument("_config_file_path", type=Path, help="")
         _parse_params(parser, cls)
         args = parser.parse_args(args=args)
 
-        with open(args._config_file_path, "r") as f:
-            file_dict: dict = yaml.load(f, Loader=yaml.FullLoader)
-        args.__dict__.pop("_config_file_path")
+        if require_default_file:
+            with open(args._config_file_path, "r") as f:
+                file_dict: dict = yaml.load(f, Loader=yaml.FullLoader)
+            args.__dict__.pop("_config_file_path")
+        else:
+            file_dict = {}
 
         nested_args_dict = {}
         for k, v in vars(args).items():
