@@ -1,34 +1,8 @@
 import unittest
 from pathlib import Path
-from pprint import pprint
-
-from pydantic import RootModel, BaseModel
-from pydantic_yaml import parse_yaml_file_as
 
 from ccorp.ruamel.yaml.include import YAML
 from expedantic import ConfigBase, Field
-
-
-class Bear(BaseModel):
-    kingdom: str
-    phylum: str
-    class_: str = Field(alias="class")
-    order: str
-    subordia: str
-    superfamily: str
-    family: str
-
-
-class ExtendedBear(Bear):
-    color: str
-    size: str
-    scary: bool
-
-
-class Bears(RootModel[dict[str, Bear]]): ...
-
-
-class ExtendedBears(RootModel[dict[str, ExtendedBear]]): ...
 
 
 class Base(ConfigBase):
@@ -75,7 +49,6 @@ decoder_net_arch:
         yaml.dump(yaml.load(base), self.base_file.open("w"))
         yaml.dump(yaml.load(child), self.child_file.open("w"))
         yaml.dump(yaml.load(grandchild), self.grand_child_file.open("w"))
-        ...
 
     def tearDown(self) -> None:
         self.base_file.unlink()
@@ -101,13 +74,3 @@ decoder_net_arch:
 
 if __name__ == "__main__":
     unittest.main()
-
-    # c = GrandChild()
-    # c.save_as_yaml("test_include.yaml")
-
-    # yaml = YAML(pure=True)
-    # with open("tests/yaml/data/root.yaml", "r") as f:
-    #     data = yaml.load(f)
-    # pprint(data)
-
-    # Bear.model_validate(data[''])
