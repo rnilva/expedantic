@@ -59,5 +59,27 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
     python run.py --inner_config.inner_key "another inner value" --outer_key 20
     ```
 
-- `!include` derivative support for yaml files.
+- `!include` directive support for yaml files:
+    ```yaml
+    # base.yaml
+    learning_rate: 3.0e-5
+    num_epochs: 10
+    device: cpu
+    ```
+    ```yaml
+    # derived.yaml
+    <<: base.yaml
+    device: cuda
+    extra: True
+    ```
 
+    The content of `derived.yaml` is equivalent to
+    ```yaml
+    learning_rate: 3.0e-5
+    num_epochs: 10
+    device: cuda
+    extra: True
+    ```
+    
+
+- 
