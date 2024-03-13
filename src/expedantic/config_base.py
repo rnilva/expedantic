@@ -29,7 +29,7 @@ _NOT_PROVIDED = NOT_PROVIDED_CLASS()
 
 class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     model_config = pydantic.ConfigDict(
-        extra="forbid", protected_namespaces=("model_", "config_base_")
+        extra="forbid", protected_namespaces=("model_", "expedantic_")
     )
 
     def flatten(self):
