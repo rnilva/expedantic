@@ -2,14 +2,18 @@ import argparse
 import inspect
 import json
 
+from abc import ABC
 from io import IOBase
 from pathlib import Path
 from typing import Any, Type, Literal, get_origin, get_args
 
 import pydantic
 import pydantic_yaml
-import yaml
-from ruamel.yaml import YAML
+
+# from ruamel.yaml import YAML
+from ccorp.ruamel.yaml.include import YAML
+
+pydantic_yaml.loader.YAML = YAML
 
 from . import utils
 
@@ -22,8 +26,10 @@ class NOT_PROVIDED_CLASS:
 _NOT_PROVIDED = NOT_PROVIDED_CLASS()
 
 
-class ConfigBase(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+class ConfigBase(pydantic.BaseModel, ABC):
+    model_config = pydantic.ConfigDict(
+        extra="forbid", protected_namespaces=("model_", "config_base_")
+    )
 
     def flatten(self):
         return utils.flatten_dict(self.model_dump())
@@ -162,7 +168,7 @@ class ConfigBase(pydantic.BaseModel):
 
         if require_default_file:
             with open(args._config_file_path, "r") as f:
-                file_dict: dict = yaml.load(f, Loader=yaml.FullLoader)
+                file_dict = YAML().load(f)
             args.__dict__.pop("_config_file_path")
         else:
             file_dict = {}

@@ -1,0 +1,3 @@
+[submodule "submodules/ccorp_yaml_include"]
+	path = submodules/ccorp_yaml_include
+	url = https://github.com/mrkram/ccorp_yaml_include
