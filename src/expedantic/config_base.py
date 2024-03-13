@@ -3,6 +3,7 @@ import inspect
 import json
 
 from abc import ABC
+from collections.abc import Mapping
 from io import IOBase
 from pathlib import Path
 from typing import Any, Type, Literal, get_origin, get_args
@@ -26,7 +27,7 @@ class NOT_PROVIDED_CLASS:
 _NOT_PROVIDED = NOT_PROVIDED_CLASS()
 
 
-class ConfigBase(pydantic.BaseModel, ABC):
+class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     model_config = pydantic.ConfigDict(
         extra="forbid", protected_namespaces=("model_", "config_base_")
     )
@@ -195,3 +196,14 @@ class ConfigBase(pydantic.BaseModel, ABC):
         instance = cls.model_validate(file_dict)
 
         return instance
+
+    def __getitem__(self, key: str):
+        if key not in self.model_fields:
+            raise KeyError(f"Key '{key}' not found.")
+        return self.__getattribute__(key)
+
+    def __len__(self):
+        return len(self.model_fields)
+
+    def keys(self):
+        return self.model_fields.keys()
