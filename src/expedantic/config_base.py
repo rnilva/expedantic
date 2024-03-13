@@ -6,7 +6,7 @@ from abc import ABC
 from collections.abc import Mapping
 from io import IOBase
 from pathlib import Path
-from typing import Any, Type, Literal, get_origin, get_args
+from typing import Any, Callable, Type, Literal, get_origin, get_args
 
 import pydantic
 import pydantic_yaml
@@ -35,7 +35,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     def flatten(self):
         return utils.flatten_dict(self.model_dump())
 
-    def compatible_args(self, cls: Type, *exclusive_keys: str):
+    def compatible_args(self, cls: Type | Callable, *exclusive_keys: str):
         fields = self.model_dump()
         args = utils.get_kwargs(cls)
         arg_keys = set(args.keys())
