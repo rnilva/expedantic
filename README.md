@@ -61,14 +61,14 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
 
 - `!include` directive support for yaml files:
     ```yaml
-    # !include base.yaml
+    # base.yaml
     learning_rate: 3.0e-5
     num_epochs: 10
     device: cpu
     ```
     ```yaml
     # derived.yaml
-    <<: base.yaml
+    <<: !include base.yaml
     device: cuda
     extra: True
     ```
