@@ -32,10 +32,49 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         extra="forbid", protected_namespaces=("model_", "expedantic_")
     )
 
-    def flatten(self):
-        return utils.flatten_dict(self.model_dump())
+    def flatten(self, sep="."):
+        """
+        Flattens the configuration object's hierarchy into a single-level dictionary, using a
+        custom separator for keys. This method is useful for converting nested configurations into
+        a flat structure, facilitating serialization or simplifying access to nested values.
+
+        Parameters:
+        - sep (str, optional): The separator character used to join nested keys in the resulting
+        flat dictionary. Defaults to '.'.
+
+        Returns:
+        dict[str, Any]: A flattened dictionary where keys are paths to the original nested values,
+        joined by the specified separator. Each key corresponds to a value from the original
+        configuration.
+
+        Example:
+        Given a configuration object structured as `{'outer': {'inner': 'value'}}` and using the
+        default separator, the result would be `{'outer.inner': 'value'}`. If a separator of '/'
+        is used, the result would be `{'outer/inner': 'value'}`.
+
+        Note:
+        The method does not modify the original configuration object but returns a new dictionary
+        with the flattened structure.
+        """
+        return utils.flatten_dict(self.model_dump(), sep=sep)
 
     def compatible_args(self, cls: Type | Callable, *exclusive_keys: str):
+        """
+        Returns a dictionary of arguments from this config instance that match the signature of `cls`,
+        excluding any specified in `exclusive_keys`. This method is useful for dynamically initialising
+        components with applicable settings.
+
+        Parameters:
+        - cls (Type | Callable): Class or callable to filter compatible configuration arguments for.
+        - exclusive_keys (str): Names of keys to exclude from the result.
+
+        Returns:
+        Dictionary of compatible arguments, excluding those listed in `exclusive_keys`.
+
+        Example:
+        Given a configuration with attributes 'a', 'b', 'c', and a function requiring 'a' and 'b',
+        calling `self.compatible_args(target_function, 'c')` yields {'a': value, 'b': value}.
+        """
         fields = self.model_dump()
         args = utils.get_kwargs(cls)
         arg_keys = set(args.keys())
@@ -105,6 +144,29 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
     @classmethod
     def parse_args(cls, require_default_file: bool = False, args=None, sep="."):
+        """
+        Parses command line arguments and returns an instance of the class with properties set
+        based on the provided arguments. This method supports nested configurations and allows
+        specifying complex data types including lists, sets, tuples, and literals. It also supports
+        loading default values from a YAML file if `require_default_file` is set to True.
+
+        Parameters:
+        - require_default_file (bool, optional): If True, expects a path to a YAML file as the first
+        positional argument from which to load default values. Defaults to False.
+        - args (List[str], optional): A list of strings representing the arguments to parse. If None,
+        parses arguments from sys.argv. Defaults to None.
+        - sep (str, optional): The separator used for nested argument names. Defaults to '.'.
+
+        Returns:
+        An instance of the class, initialised with properties set based on the parsed arguments and
+        any defaults specified in the YAML file (if `require_default_file` is True).
+
+        This method dynamically constructs an argument parser based on the class's model fields,
+        supporting deep nesting by using the specified separator `sep` to denote hierarchy in argument
+        names. It handles various data types appropriately and allows for the specification of default
+        values directly in the command line invocation or through a configuration file.
+        """
+
         def _parse_params(
             parser: argparse.ArgumentParser,
             cls: Type[ConfigBase],
