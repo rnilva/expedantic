@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from io import IOBase
 from pathlib import Path
 from typing import Any, Callable, Type, Literal, get_origin, get_args
+from typing_extensions import Self
 
 import pydantic
 import pydantic_yaml
@@ -31,6 +32,23 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     model_config = pydantic.ConfigDict(
         extra="forbid", protected_namespaces=("model_", "expedantic_")
     )
+
+    _mutually_exclusive_sets: list[set[str]] = []
+    """
+    Defines sets of configuration options within `ConfigBase` that are mutually exclusive. Each set contains 
+    keys of options where, logically, only one option can be evaluated as True at any given time. An option 
+    is considered to be evaluated as True if its value is truthy (i.e., not `None`, `False`, an empty string, 
+    or any other value that is considered falsy in a boolean context).
+
+    If more than one option in a mutually exclusive set is evaluated as True, a `ValidationError` is raised, 
+    enforcing that incompatible configuration states do not co-occur. This feature is crucial for maintaining 
+    the integrity and logical consistency of the configuration.
+
+    Type:
+        list[set[str]]: Each inner set comprises strings that represent the keys of the configuration options. 
+        These options are mutually exclusive with each other, ensuring that only one can be evaluated as True, 
+        promoting clear and logical configuration setups.
+    """
 
     def flatten(self, sep="."):
         """
@@ -258,6 +276,16 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         instance = cls.model_validate(file_dict)
 
         return instance
+
+    @pydantic.model_validator(mode="after")
+    def check_mutually_exclusive_sets(self) -> Self:
+        for exclusive_set in self._mutually_exclusive_sets:
+            check = sum(bool(self[key]) for key in exclusive_set) == 1
+            if not check:
+                raise ValueError(
+                    f"Mutual exclusivity has broken. (set: {exclusive_set})"
+                )
+        return self
 
     def __getitem__(self, key: str):
         if key not in self.model_fields:
