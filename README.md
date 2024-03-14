@@ -10,6 +10,7 @@ pip install expedantic
 ```
 
 ## Basic Usage
+
 ```python
 from expedantic import ConfigBase
 
@@ -42,6 +43,52 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
 - Type validation using `pydantic`.
 
 - JSON schema generation for autocompletion on yaml files.
+    You can facilitate efficient yaml editing on IDEs such as [VS Code](https://code.visualstudio.com/).
+    
+    For VS Code usage, the following steps enable the autocompletion on yaml files for configuration models.
+
+    1. Generate a schema.
+
+    ```python
+    from pathlib import Path
+    from typing import Annotated, Literal
+    from expedantic import ConfigBase, Field
+
+
+    class Config(ConfigBase):
+        algorithm: Literal["TRPO", "PPO", "SAC", "TD3"] = "TRPO"
+        target_kl: Annotated[
+            float,
+            Field(
+                title="Target Kullback-Leibler divergence between updates.",
+                description="Should be small for stability. Values like 0.01, 0.05.",
+                gt=0.0,
+            ),
+        ] = 0.01
+
+
+    config = Config()
+    Path("configs").mkdir(exist_ok=True)
+    config.save_as_yaml("configs/config.yaml")
+    Config.generate_schema("schemas/config_schema.json")
+    ```
+
+    2. Install [the yaml language extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml).
+
+    3. Associating the schema
+    ```json
+    # .vscode/settings.json
+    yaml.schemas: {
+        "schemas/config_schema.json": "configs/config.yaml",
+    }
+    ```
+    Check the further rules for association in [the description of the extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml).
+
+    4. Enjoy!
+    ![description](imgs/expedantic_schema_description.png)
+    ![autocompletion](imgs/expedantic_schema_autocompletion.png)
+
+
 
 - Integrated argument parser with supporting nested key access:
     ```python
