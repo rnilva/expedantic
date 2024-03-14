@@ -99,7 +99,7 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
         print(e)
         """
         1 validation error for Config
-            Value error, Mutual exclusivity has broken. (set: {'a', 'b'}) [type=value_error, input_value={'make_algorithm_A_obsolete': True, 'use_algorithm_A': True}, input_type=dict]
+            Value error, Mutual exclusivity has broken. (set: {'make_algorithm_A_obsolete', 'use_algorithm_A'}) [type=value_error, input_value={'make_algorithm_A_obsolete': True, 'use_algorithm_A': True}, input_type=dict]
         """
 
     ```
