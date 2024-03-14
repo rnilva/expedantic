@@ -76,8 +76,8 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
     2. Install [the yaml language extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml).
 
     3. Associating the schema
-    ```
-    # .vscode/settings.json
+    ```json
+     .vscode/settings.json
     yaml.schemas: {
         "schemas/config_schema.json": "configs/config.yaml",
     }
