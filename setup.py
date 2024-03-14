@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="expedantic",
-    version="0.1.3",
+    version="0.1.4",
     packages=["expedantic", "ccorp.ruamel.yaml.include"],
     package_dir={
         # "expedantic": "src",

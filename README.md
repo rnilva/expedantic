@@ -43,7 +43,7 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
 
 - JSON schema generation for autocompletion on yaml files.
 
-- Integrated argument parser with supporting nested key accessment:
+- Integrated argument parser with supporting nested key access:
     ```python
     # run.py
     class MyInnerConfig(ConfigBase):
@@ -73,12 +73,35 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
     extra: True
     ```
 
-    The content of `derived.yaml` is equivalent to
+    The content of `derived.yaml` is equivalent to the following:
     ```yaml
     learning_rate: 3.0e-5
     num_epochs: 10
     device: cuda
     extra: True
+    ```
+
+- Mutually exclusive configuration groups:
+
+    ```python
+    from pydantic import ValidationError
+
+
+    class Config(ConfigBase):
+        _mutually_exclusive_sets = [{"make_algorithm_A_obsolete", "use_algorithm_A"}]
+
+        make_algorithm_A_obsolete: bool = True
+        use_algorithm_A: bool = False
+
+    try:
+        config = Config(make_algorithm_A_obsolete=True, use_algorithm_A=True)
+    except ValidationError:
+        print(e)
+        """
+        1 validation error for Config
+            Value error, Mutual exclusivity has broken. (set: {'a', 'b'}) [type=value_error, input_value={'make_algorithm_A_obsolete': True, 'use_algorithm_A': True}, input_type=dict]
+        """
+
     ```
 
 
