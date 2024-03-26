@@ -6,7 +6,8 @@ from abc import ABC
 from collections.abc import Mapping
 from io import IOBase
 from pathlib import Path
-from typing import Any, Callable, Type, Literal, get_origin, get_args
+from types import UnionType
+from typing import Any, Callable, Type, Literal, Union, get_origin, get_args
 from typing_extensions import Self
 
 import pydantic
@@ -200,7 +201,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 origin = get_origin(tp)
 
                 if not origin and inspect.isclass(tp) and issubclass(tp, ConfigBase):
-                    _parse_params(parser, tp, name)
+                    _parse_params(parser, tp, name, sep)
                     continue
 
                 names = [f"--{name}"]
@@ -223,6 +224,16 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                         kwargs["type"] = str
                     else:
                         kwargs["type"] = args[0]
+                elif origin in {UnionType, Union}:
+                    kwargs["type"] = (
+                        str  # Try to solve union types via pydantic internal.
+                    )
+                    if origin is Union:
+                        args: tuple[type, ...] = get_args(tp)
+                        names = map(lambda a: a.__name__, args)
+                        annot_repr = " | ".join(names)
+                elif origin is dict:
+                    kwargs["type"] = YAML().load
 
                 if field_info.is_required():
                     req_repr = "required"
@@ -243,7 +254,9 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         parser = argparse.ArgumentParser()
         if require_default_file:
-            parser.add_argument("_config_file_path", type=Path, help="")
+            parser.add_argument(
+                "_config_file_path", type=Path, help="Default Config File Path"
+            )
         _parse_params(parser, cls)
         args = parser.parse_args(args=args)
 
