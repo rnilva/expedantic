@@ -1,3 +1,4 @@
+# https://docs.pydantic.dev/latest/concepts/unions/#discriminated-unions
 from pathlib import Path
 from typing import Literal
 

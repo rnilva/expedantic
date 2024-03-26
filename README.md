@@ -26,6 +26,7 @@ my_config.save_as_yaml("config.yaml")
 my_config = MyConfig.load_from_yaml("config.yaml")
 
 
+# For a given function or class,
 def learn(device: str, learning_rate: float, num_epochs: int):
     ...
 
@@ -37,6 +38,10 @@ learn(**my_config.compatible_args(learn))
 learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
 ```
 
+### Examples
+
+Find some examples [here](./examples/).
+
 
 ## Features
 
@@ -45,7 +50,7 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
 - JSON schema generation for autocompletion on yaml files.
     You can facilitate efficient yaml editing on IDEs such as [VS Code](https://code.visualstudio.com/).
     
-    For VS Code usage, the following steps enable the autocompletion on yaml files for configuration models.
+    For the VS Code usage, the following steps enable the autocompletion on yaml files for configuration models.
 
     1. Generate a schema.
 
@@ -142,7 +147,7 @@ learn(my_config.device, my_config.learning_rate, my_config.num_epochs)
 
     try:
         config = Config(make_algorithm_A_obsolete=True, use_algorithm_A=True)
-    except ValidationError:
+    except ValidationError as e:
         print(e)
         """
         1 validation error for Config
