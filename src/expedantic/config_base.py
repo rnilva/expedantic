@@ -212,6 +212,8 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
                 if tp is Any:
                     kwargs["type"] = str
+                elif tp is bool:
+                    kwargs["action"] = argparse.BooleanOptionalAction
                 elif origin is Literal:
                     var_type, literals = utils.get_literals(tp, name)
                     kwargs["type"] = var_type
