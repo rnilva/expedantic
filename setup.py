@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="expedantic",
-    version="0.1.5",
+    version="0.1.6",
     packages=["expedantic", "ccorp.ruamel.yaml.include"],
     package_dir={
         # "expedantic": "src",
@@ -13,7 +13,7 @@ setup(
     python_requires=">=3.10",
     install_requires=[
         "pydantic >= 2.6.3",
-        "pydantic_yaml >= 1.2.1",
+        "pydantic_yaml >= 1.3.0",
         "typed-argument-parser",
     ],
     author="rnilva",
