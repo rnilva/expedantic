@@ -16,7 +16,7 @@ import pydantic_yaml
 # from ruamel.yaml import YAML
 from ccorp.ruamel.yaml.include import YAML
 
-pydantic_yaml.loader.YAML = YAML
+pydantic_yaml._internals.v2.YAML = YAML
 
 from . import utils
 
