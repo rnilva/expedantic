@@ -232,8 +232,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                     )
                     if origin is Union:
                         args: tuple[type, ...] = get_args(tp)
-                        names = map(lambda a: a.__name__, args)
-                        annot_repr = " | ".join(names)
+                        annot_repr = " | ".join(map(lambda a: a.__name__, args))
                 elif origin is dict:
                     kwargs["type"] = YAML().load
 
