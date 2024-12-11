@@ -46,9 +46,12 @@ decoder_net_arch:
         self.grand_child_file = Path("./tmp/grand_child.yaml")
 
         self.base_file.parent.mkdir(exist_ok=True)
-        yaml.dump(yaml.load(base), self.base_file.open("w"))
-        yaml.dump(yaml.load(child), self.child_file.open("w"))
-        yaml.dump(yaml.load(grandchild), self.grand_child_file.open("w"))
+        with self.base_file.open("w") as f:
+            yaml.dump(yaml.load(base), f)
+        with self.child_file.open("w") as f:
+            yaml.dump(yaml.load(child), f)
+        with self.grand_child_file.open("w") as f:
+            yaml.dump(yaml.load(grandchild), f)
 
     def tearDown(self) -> None:
         self.base_file.unlink()
