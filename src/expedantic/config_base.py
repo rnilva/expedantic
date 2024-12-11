@@ -162,7 +162,13 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         return pydantic_yaml.parse_yaml_file_as(cls, path)
 
     @classmethod
-    def parse_args(cls, require_default_file: bool = False, args=None, sep="."):
+    def parse_args(
+        cls,
+        require_default_file: bool = False,
+        replace_underscore_to_hyphen: bool = False,
+        args=None,
+        sep=".",
+    ):
         """
         Parses command line arguments and returns an instance of the class with properties set
         based on the provided arguments. This method supports nested configurations and allows
@@ -203,6 +209,9 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 if not origin and inspect.isclass(tp) and issubclass(tp, ConfigBase):
                     _parse_params(parser, tp, name, sep)
                     continue
+
+                if replace_underscore_to_hyphen:
+                    name = name.replace("_", "-")
 
                 names = [f"--{name}"]
                 kwargs = {}
