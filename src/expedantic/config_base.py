@@ -251,11 +251,12 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                         kwargs["default"] = _NOT_PROVIDED
                 else:
                     default_value = field_info.get_default(call_default_factory=True)
-                    req_repr = f"default={default_value}"
+                    req_repr = f"default: {default_value}"
                     if not require_default_file:
                         kwargs["default"] = default_value
 
-                kwargs["help"] = f"({annot_repr}, {req_repr})"
+                help = field_info.description + " " if field_info.description else ""
+                kwargs["help"] = help + f"({annot_repr}, {req_repr})"
 
                 if require_default_file:
                     kwargs["default"] = _NOT_PROVIDED
