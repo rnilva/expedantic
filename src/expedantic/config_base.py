@@ -7,17 +7,15 @@ from collections.abc import Mapping
 from io import IOBase
 from pathlib import Path
 from types import UnionType
-from typing import Any, Callable, Type, Literal, Union, get_origin, get_args
+from typing import Any, Callable, ClassVar, Type, Literal, Union, get_origin, get_args
 from typing_extensions import Self
 
 import pydantic
 import pydantic_yaml
-
-# from ruamel.yaml import YAML
-from ccorp.ruamel.yaml.include import YAML
+from rich.console import Console
 
 from .yaml_utils import RUAMEL_YAML, YAML, yaml
-from . import utils
+from . import utils, printer
 
 
 class NOT_PROVIDED_CLASS:
@@ -190,6 +188,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         names. It handles various data types appropriately and allows for the specification of default
         values directly in the command line invocation or through a configuration file.
         """
+        console = Console()
 
         def _parse_params(
             parser: argparse.ArgumentParser,
@@ -296,6 +295,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
             return d
 
         file_dict = update_recursively(file_dict, nested_args_dict)
+
         instance = cls.model_validate(file_dict)
 
         return instance
@@ -320,3 +320,32 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
     def keys(self):
         return self.model_fields.keys()
+
+    _expedantic_root: ClassVar[bool] = True
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _set_root(cls, _):
+        for key, field_info in cls.model_fields.items():
+            tp = field_info.annotation
+            if (
+                isinstance(tp, type)
+                and not get_origin(tp)
+                and issubclass(tp, ConfigBase)
+            ):
+                tp._expedantic_root = False
+
+        return _
+
+    @pydantic.model_validator(mode="wrap")
+    @classmethod
+    def pretty_print_validation_errors(
+        cls, data: Any, handler: pydantic.ModelWrapValidatorHandler[Self]
+    ) -> Self:
+        try:
+            return handler(data)
+        except pydantic.ValidationError as e:
+            if cls._expedantic_root:
+                printer.print_validation_errors(cls, e)
+                exit(1)
+            raise

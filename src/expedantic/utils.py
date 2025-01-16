@@ -1,6 +1,9 @@
+import argparse
 import inspect
-from typing import Any, Type
+from typing import Any, Type, get_origin, get_args
 
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from tap.utils import type_to_str, get_literals
 
 
@@ -30,3 +33,89 @@ def flatten_dict(d: dict[str, Any], parent_key="", sep=".") -> dict[str, Any]:
         else:
             items.append((new_key, v))
     return dict(items)
+
+
+def get_field_info(
+    model_cls: Type[BaseModel], prefix: str = "", sep="."
+) -> dict[str, FieldInfo]:
+    """
+    Recursively extract FieldInfo from a Pydantic BaseModel class, including nested models.
+
+    Args:
+        model_cls: The Pydantic BaseModel class to inspect
+        prefix: Current prefix for nested field names (used in recursion)
+
+    Returns:
+        A dictionary mapping field paths to their FieldInfo objects
+
+    Example:
+        class Address(BaseModel):
+            street: str = Field(description="Street address")
+            city: str = Field(description="City name")
+
+        class User(BaseModel):
+            name: str = Field(description="User's full name")
+            age: int = Field(ge=0, description="User's age")
+            address: Address
+
+        field_info = get_field_info(User)
+        # Returns:
+        # {
+        #     'name': FieldInfo(...),
+        #     'age': FieldInfo(...),
+        #     'address.street': FieldInfo(...),
+        #     'address.city': FieldInfo(...)
+        # }
+    """
+    result = {}
+
+    # Get model's field definitions
+    model_fields = model_cls.model_fields
+
+    for field_name, field in model_fields.items():
+        # Build the full field path
+        full_path = f"{prefix}{field_name}" if prefix else field_name
+
+        # Add the current field's FieldInfo
+        result[full_path] = field
+
+        # Get the field type
+        field_type = field.annotation
+
+        # Handle Optional/Union types
+        origin = get_origin(field_type)
+        if origin is not None:
+            args = get_args(field_type)
+            # Look for BaseModel in Union types
+            field_type = next(
+                (
+                    arg
+                    for arg in args
+                    if isinstance(arg, type)
+                    and not get_origin(arg)
+                    and issubclass(arg, BaseModel)
+                ),
+                None,
+            )
+
+        # Recursively process nested BaseModels
+        if isinstance(field_type, type) and issubclass(field_type, BaseModel):
+            nested_fields = get_field_info(field_type, prefix=f"{full_path}{sep}")
+            result.update(nested_fields)
+
+    return result
+
+
+class ArgumentParser(argparse.ArgumentParser):
+    def _get_value(self, action, arg_string):
+        try:
+            return super()._get_value(action, arg_string)
+        except (argparse.ArgumentError, TypeError, ValueError):
+            # Return the original string if type conversion fails
+            return arg_string
+
+    def _check_value(self, action, value):
+        try:
+            return super()._check_value(action, value)
+        except:
+            return
