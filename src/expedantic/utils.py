@@ -1,6 +1,6 @@
 import argparse
 import inspect
-from typing import Any, Type, get_origin, get_args
+from typing import Any, Type, get_origin, get_args, Sequence
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -119,3 +119,33 @@ class ArgumentParser(argparse.ArgumentParser):
             return super()._check_value(action, value)
         except:
             return
+
+    def parse_all_args_as_dict(self, args: Sequence[str] | None):
+        known, unknown_args = self.parse_known_args(args=args)
+
+        unknown_parser = argparse.ArgumentParser(
+            argument_default=argparse.SUPPRESS, usage=argparse.SUPPRESS, add_help=False
+        )
+
+        processed_unknown = []
+        for arg in unknown_args:
+            if arg.startswith("--") and "=" in arg:
+                key, value = arg.split("=", 1)
+                processed_unknown.extend([key, value])
+            else:
+                processed_unknown.append(arg)
+
+        # Make it accept any argument
+        for arg in processed_unknown:
+            if arg.startswith("--"):
+                name = arg[2:]  # strip off the --
+                unknown_parser.add_argument(
+                    f"--{name}", type=str, nargs="?", const=True
+                )
+
+        unknown = unknown_parser.parse_args(unknown_args)
+
+        known_dict = vars(known)
+        unknown_dict = vars(unknown)
+        known_dict.update(unknown_dict)
+        return known_dict
