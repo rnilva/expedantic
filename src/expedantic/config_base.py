@@ -16,8 +16,7 @@ import pydantic_yaml
 # from ruamel.yaml import YAML
 from ccorp.ruamel.yaml.include import YAML
 
-pydantic_yaml._internals.v2.YAML = YAML
-
+from .yaml_utils import RUAMEL_YAML, YAML, yaml
 from . import utils
 
 
@@ -108,7 +107,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         map_indent: int | None = None,
         sequence_indent: int | None = None,
         sequence_dash_offset: int | None = None,
-        custom_yaml_writer: YAML | None = None,
+        custom_yaml_writer: YAML | None = yaml,
         **json_kwargs,
     ):
         """Write a YAML file representation of the model.
