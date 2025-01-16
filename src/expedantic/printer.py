@@ -217,6 +217,8 @@ def print_validation_errors(
             for error in errors:
                 field_path = ".".join(str(x) for x in error["loc"])
                 context, field_info = get_field_context(error["loc"], field_infos)
+                if error_type == "extra_forbidden":
+                    context = Text("Input=").append(f"{error['input']}", style="red")
                 other_table.add_row(
                     field_path,
                     (
