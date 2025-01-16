@@ -7,7 +7,17 @@ from collections.abc import Mapping
 from io import IOBase
 from pathlib import Path
 from types import UnionType
-from typing import Any, Callable, ClassVar, Type, Literal, Union, get_origin, get_args
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Sequence,
+    Type,
+    Literal,
+    Union,
+    get_origin,
+    get_args,
+)
 from typing_extensions import Self
 
 import pydantic
@@ -163,7 +173,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         cls,
         require_default_file: bool = False,
         replace_underscore_to_hyphen: bool = False,
-        args=None,
+        args: Sequence[str] | None = None,
         sep=".",
     ):
         """
@@ -175,7 +185,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         Parameters:
         - require_default_file (bool, optional): If True, expects a path to a YAML file as the first
         positional argument from which to load default values. Defaults to False.
-        - args (List[str], optional): A list of strings representing the arguments to parse. If None,
+        - args (Sequence[str], optional): A list of strings representing the arguments to parse. If None,
         parses arguments from sys.argv. Defaults to None.
         - sep (str, optional): The separator used for nested argument names. Defaults to '.'.
 
@@ -261,23 +271,23 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
                 parser.add_argument(*names, **kwargs)
 
-        parser = argparse.ArgumentParser()
+        parser = utils.ArgumentParser()
         if require_default_file:
             parser.add_argument(
                 "_config_file_path", type=Path, help="Default Config File Path"
             )
         _parse_params(parser, cls)
-        args = parser.parse_args(args=args)
+        parsed_dict = parser.parse_all_args_as_dict(args)
 
         if require_default_file:
-            with open(args._config_file_path, "r") as f:
+            with open(parsed_dict["_config_file_path"], "r") as f:
                 file_dict = YAML().load(f)
-            args.__dict__.pop("_config_file_path")
+            del parsed_dict["_config_file_path"]
         else:
             file_dict = {}
 
         nested_args_dict = {}
-        for k, v in vars(args).items():
+        for k, v in parsed_dict.items():
             if v is _NOT_PROVIDED:
                 continue
             keys = k.split(sep)
