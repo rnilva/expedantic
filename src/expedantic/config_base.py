@@ -25,7 +25,7 @@ import pydantic_yaml
 from rich.console import Console
 
 from .yaml_utils import RUAMEL_YAML, YAML, yaml
-from . import utils, printer
+from . import utils, printers
 
 
 class NOT_PROVIDED_CLASS:
@@ -356,6 +356,6 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
             return handler(data)
         except pydantic.ValidationError as e:
             if cls._expedantic_root:
-                printer.print_validation_errors(cls, e)
+                printers.print_validation_errors(cls, e)
                 exit(1)
             raise
