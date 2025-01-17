@@ -28,14 +28,6 @@ from .yaml_utils import RUAMEL_YAML, YAML, yaml
 from . import utils, printers
 
 
-class NOT_PROVIDED_CLASS:
-    def __repr__(self) -> str:
-        return "NOT_PROVIDED"
-
-
-_NOT_PROVIDED = NOT_PROVIDED_CLASS()
-
-
 DIFF_PRINT_MODE = Literal["none", "tree", "tree_dim", "tree_skip"]
 
 
@@ -274,7 +266,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 if field_info.is_required():
                     req_repr = "required"
                     if not require_default_file:
-                        kwargs["default"] = _NOT_PROVIDED
+                        kwargs["default"] = utils._NOT_PROVIDED
                 else:
                     default_value = field_info.get_default(call_default_factory=True)
                     req_repr = f"default: {default_value}"
@@ -285,7 +277,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 kwargs["help"] = help + f"({annot_repr}, {req_repr})"
 
                 if require_default_file:
-                    kwargs["default"] = _NOT_PROVIDED
+                    kwargs["default"] = utils._NOT_PROVIDED
 
                 parser.add_argument(*names, **kwargs)
 
@@ -312,7 +304,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         nested_args_dict = {}
         for k, v in parsed_dict.items():
-            if v is _NOT_PROVIDED:
+            if v is utils._NOT_PROVIDED:
                 continue
             keys = k.split(sep)
             current_level = nested_args_dict
@@ -345,7 +337,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         cls, incoming: dict[str, Any], diff_print_mode: DIFF_PRINT_MODE
     ):
         if "tree" in diff_print_mode:
-            default_dict = utils.get_default_dict(cls, _NOT_PROVIDED)
+            default_dict = utils.get_default_dict(cls, utils._NOT_PROVIDED)
             dim_unchanged, skip_unchanged = (
                 diff_print_mode == "tree_dim",
                 diff_print_mode == "tree_skip",

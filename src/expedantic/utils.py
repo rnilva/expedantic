@@ -11,6 +11,14 @@ EMPTY = inspect.Parameter.empty
 POS_ONLY = inspect.Parameter.POSITIONAL_ONLY
 
 
+class NOT_PROVIDED_CLASS:
+    def __repr__(self) -> str:
+        return "NOT_PROVIDED"
+
+
+_NOT_PROVIDED = NOT_PROVIDED_CLASS()
+
+
 def get_kwargs(cls: Type):
     signature = inspect.signature(cls)
     kw_args = {

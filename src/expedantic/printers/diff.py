@@ -6,16 +6,31 @@ from rich.style import Style
 from rich.text import Text
 from rich.tree import Tree
 
+from ..utils import _NOT_PROVIDED
 
-TYPE_STYLE_MAP: dict[type | tuple[type, ...], Style] = {
-    bool: Style(color="cyan"),
-    (int, float): Style(color="magenta"),
-    str: Style(color="green"),
-    (list, tuple): Style(color="cyan"),
-    dict: Style(color="blue"),
+
+DIFF_STYLE_MAP: dict[
+    Literal["previous", "current", "removed", "added", "unchanged", "modified"],
+    Style | str,
+] = {
+    "previous": "deep_pink2",
+    "current": "turquoise2",
+    "removed": "red",
+    "added": "blue",
+    "unchanged": "yellow",
+    "modified": "yellow bold",
 }
 
-NONE_STYLE = Style(color="black", dim=True)
+
+TYPE_STYLE_MAP: dict[type | tuple[type, ...], Style] = {
+    bool: Style(color="bright_cyan"),
+    (int, float): Style(color="bright_magenta"),
+    str: Style(color="green"),
+    (list, tuple): Style(color="bright_cyan"),
+    dict: Style(color="bright_blue"),
+}
+
+NONE_STYLE = Style(color="bright_cyan")
 
 
 def get_value_style(value: Any) -> Style:
@@ -91,11 +106,25 @@ def create_diff_tree(
                 tree.add(Text(f"[{i}] {repr(value)}", style=style))
 
     def compare_values(key: str, v1: Any, v2: Any, tree: Tree) -> None:
-        if isinstance(v1, dict) and isinstance(v2, dict):
-            node = tree.add(Text(key, style="bold"))
-            create_diff_tree(
-                v1, v2, node, dim_unchanged=dim_unchanged, skip_unchanged=skip_unchanged
-            )
+        if isinstance(v2, dict):
+            if isinstance(v1, dict):
+                node = tree.add(Text(key, style="bold"))
+                create_diff_tree(
+                    v1,
+                    v2,
+                    node,
+                    dim_unchanged=dim_unchanged,
+                    skip_unchanged=skip_unchanged,
+                )
+            elif v1 is _NOT_PROVIDED:
+                node = tree.add(Text(key, style="bold"))
+                create_diff_tree(
+                    {k: _NOT_PROVIDED for k in v2},
+                    v2,
+                    node,
+                    dim_unchanged=dim_unchanged,
+                    skip_unchanged=skip_unchanged,
+                )
         elif isinstance(v1, list) and isinstance(v2, list):
             node = tree.add(Text(key, style="bold"))
             if v1 == v2:
@@ -104,21 +133,34 @@ def create_diff_tree(
                     for i, v in enumerate(v1):
                         node.add(create_value_text(f"[{i}]", v, style))
             else:
-                node_1 = node.add(Text("Previous:", style="red"))
+                node_1 = node.add(Text("Previous:", style=DIFF_STYLE_MAP["previous"]))
                 for i, v in enumerate(v1):
-                    node_1.add(create_value_text(f"[{i}]", v, "red"))
-                node_2 = node.add(Text("Current:", style="blue"))
+                    node_1.add(
+                        create_value_text(f"[{i}]", v, style=DIFF_STYLE_MAP["previous"])
+                    )
+                node_2 = node.add(Text("Current:", style=DIFF_STYLE_MAP["current"]))
                 for i, v in enumerate(v2):
-                    node_2.add(create_value_text(f"[{i}]", v, "blue"))
+                    node_2.add(
+                        create_value_text(f"[{i}]", v, DIFF_STYLE_MAP["current"])
+                    )
         else:
             if v1 == v2:
                 if not skip_unchanged:
                     style = "dim" if dim_unchanged else get_value_style(v1)
                     tree.add(create_value_text(key, v1, style))
+            elif v1 is _NOT_PROVIDED:
+                texts = [
+                    (f"{key}: ", DIFF_STYLE_MAP["modified"]),
+                    (repr(v2), get_value_style(v2)),
+                    (" (Assigned)", DIFF_STYLE_MAP["unchanged"]),
+                ]
+                node = tree.add(Text.assemble(*texts))
             else:
-                node = tree.add(Text(key, style="yellow bold"))
-                node.add(Text(f"Previous: {repr(v1)}", style="red"))
-                node.add(Text(f"Current: {repr(v2)}", style="blue"))
+                node = tree.add(Text(key, style=DIFF_STYLE_MAP["modified"]))
+                node.add(
+                    Text(f"Previous: {repr(v1)}", style=DIFF_STYLE_MAP["previous"])
+                )
+                node.add(Text(f"Current: {repr(v2)}", style=DIFF_STYLE_MAP["current"]))
 
     # Start with a new tree if none is provided
     if parent is None:
@@ -133,24 +175,26 @@ def create_diff_tree(
             compare_values(key, d1[key], d2[key], parent)
         elif key in d1:
             # Key only in first dictionary
-            node = parent.add(Text(f"❌ {key} (removed)", style="red"))
+            node = parent.add(
+                Text(f"❌ {key} (removed)", style=DIFF_STYLE_MAP["removed"])
+            )
             value = d1[key]
             if isinstance(value, dict):
-                add_dict_to_tree(value, node, style="red")
+                add_dict_to_tree(value, node, style=DIFF_STYLE_MAP["removed"])
             elif isinstance(value, list):
-                add_list_to_tree(value, node, style="red")
+                add_list_to_tree(value, node, style=DIFF_STYLE_MAP["removed"])
             else:
-                node.add(create_value_text("value", value, "red"))
+                node.add(create_value_text("value", value, DIFF_STYLE_MAP["removed"]))
         else:
             # Key only in second dictionary
-            node = parent.add(Text(f"✨ {key} (added)", style="blue"))
+            node = parent.add(Text(f"✨ {key} (added)", style=DIFF_STYLE_MAP["added"]))
             value = d2[key]
             if isinstance(value, dict):
-                add_dict_to_tree(value, node, style="blue")
+                add_dict_to_tree(value, node, style=DIFF_STYLE_MAP["added"])
             elif isinstance(value, list):
-                add_list_to_tree(value, node, style="blue")
+                add_list_to_tree(value, node, style=DIFF_STYLE_MAP["added"])
             else:
-                node.add(create_value_text("value", value, "blue"))
+                node.add(create_value_text("value", value, DIFF_STYLE_MAP["added"]))
 
     return parent
 
@@ -193,12 +237,12 @@ def print_tree_diff(
     # Create a legend panel
     legend_items = [
         ("Legend\n\n", "bold"),
-        ("✨ ", "blue"),
+        ("✨ ", DIFF_STYLE_MAP["added"]),
         ("Added in current\n", "default"),
-        ("❌ ", "red"),
+        ("❌ ", DIFF_STYLE_MAP["removed"]),
         ("Removed from previous\n", "default"),
-        ("Yellow", "yellow"),
-        (" Modified keys\n", "default"),
+        # ("Yellow", DIFF_STYLE_MAP["unchanged"]),
+        ("Modified keys\n", DIFF_STYLE_MAP["modified"]),
         ("Red", "red"),
         (" Previous values\n", "default"),
         ("Blue", "blue"),
