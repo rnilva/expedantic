@@ -1,7 +1,6 @@
 from itertools import groupby
 from operator import itemgetter
-from typing import Any, Type, TypedDict, Union, get_origin, get_args
-from types import UnionType
+from typing import Type, TypedDict
 
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
@@ -13,44 +12,8 @@ from rich.tree import Tree
 from rich.table import Table
 from rich import box
 
+from .utils import format_type
 from .. import utils
-
-
-def format_type(annotation: Any) -> Text:
-    """Format type annotation into styled text."""
-    text = Text()
-
-    # Handle Union/Optional types
-    origin = get_origin(annotation)
-    if origin in (UnionType, Union):
-        args = get_args(annotation)
-        for i, arg in enumerate(args):
-            if i > 0:
-                text.append(" | ", style="bold")
-            text.append(
-                arg.__name__ if hasattr(arg, "__name__") else str(arg), style="blue"
-            )
-        return text
-
-    # Handle other generic types
-    if origin is not None:
-        text.append(origin.__name__, style="blue")
-        args = get_args(annotation)
-        if args:
-            text.append("[")
-            for i, arg in enumerate(args):
-                if i > 0:
-                    text.append(", ")
-                text.append(
-                    arg.__name__ if hasattr(arg, "__name__") else str(arg), style="cyan"
-                )
-            text.append("]")
-        return text
-
-    return Text(
-        annotation.__name__ if hasattr(annotation, "__name__") else str(annotation),
-        style="blue",
-    )
 
 
 def format_error_type(error_type: str) -> str:
