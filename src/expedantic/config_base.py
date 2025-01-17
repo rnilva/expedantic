@@ -167,9 +167,12 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         print(f"JSON Schema for {cls.__name__} is generated at {path}")
 
     @classmethod
-    def load_from_yaml(cls, path: Path | str):
+    def load_from_yaml(
+        cls, path: Path | str, diff_print_mode: DIFF_PRINT_MODE = "tree"
+    ):
         path = Path(path)
-        return pydantic_yaml.parse_yaml_file_as(cls, path)
+        instance = pydantic_yaml.parse_yaml_file_as(cls, path)
+        cls.print_diff_to_default(instance.model_dump(), diff_print_mode)
 
     @classmethod
     def parse_args(
@@ -324,6 +327,14 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         instance = cls.model_validate(file_dict)
 
+        cls.print_diff_to_default(file_dict, diff_print_mode)
+
+        return instance
+
+    @classmethod
+    def print_diff_to_default(
+        cls, incoming: dict[str, Any], diff_print_mode: DIFF_PRINT_MODE
+    ):
         if "tree" in diff_print_mode:
             default_dict = utils.get_default_dict(cls, _NOT_PROVIDED)
             dim_unchanged, skip_unchanged = (
@@ -332,13 +343,11 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
             )
             printers.print_tree_diff(
                 default_dict,
-                file_dict,
+                incoming,
                 root_name=cls.__name__,
                 dim_unchanged=dim_unchanged,
                 skip_unchanged=skip_unchanged,
             )
-
-        return instance
 
     @pydantic.model_validator(mode="after")
     def check_mutually_exclusive_sets(self) -> Self:
