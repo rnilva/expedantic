@@ -23,6 +23,7 @@ from typing_extensions import Self
 import pydantic
 import pydantic_yaml
 from rich.console import Console
+from rich.pretty import pprint
 
 from .yaml_utils import RUAMEL_YAML, YAML, yaml
 from . import utils, printers
@@ -160,7 +161,11 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
     @classmethod
     def load_from_yaml(
-        cls, path: Path | str, diff_print_mode: DIFF_PRINT_MODE = "tree"
+        cls,
+        path: Path | str,
+        *,
+        diff_print_mode: DIFF_PRINT_MODE = "tree",
+        print_config: bool = True,
     ):
         path = Path(path)
         try:
@@ -171,6 +176,9 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         cls.print_diff_to_default(instance.model_dump(), diff_print_mode)
 
+        if print_config:
+            pprint(instance)
+
     @classmethod
     def parse_args(
         cls,
@@ -178,6 +186,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         require_default_file: bool = False,
         replace_underscore_to_hyphen: bool = False,
         diff_print_mode: DIFF_PRINT_MODE = "tree",
+        print_config: bool = True,
         args: Sequence[str] | None = None,
         sep=".",
     ):
@@ -329,6 +338,9 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
             exit(1)
 
         cls.print_diff_to_default(instance.model_dump(), diff_print_mode)
+
+        if print_config:
+            pprint(instance)
 
         return instance
 
