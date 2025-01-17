@@ -13,7 +13,7 @@ from rich.tree import Tree
 from rich.table import Table
 from rich import box
 
-from . import utils
+from .. import utils
 
 
 def format_type(annotation: Any) -> Text:
