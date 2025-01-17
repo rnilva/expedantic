@@ -54,7 +54,10 @@ def get_default_dict(model: type[BaseModel], not_provided_value=None):
 
 
 def get_field_info(
-    model_cls: Type[BaseModel], prefix: str = "", sep="."
+    model_cls: Type[BaseModel],
+    prefix: str = "",
+    sep=".",
+    underscore_to_hyphen=False,
 ) -> dict[str, FieldInfo]:
     """
     Recursively extract FieldInfo from a Pydantic BaseModel class, including nested models.
@@ -91,6 +94,9 @@ def get_field_info(
     model_fields = model_cls.model_fields
 
     for field_name, field in model_fields.items():
+        if underscore_to_hyphen:
+            field_name = field_name.replace("_", "-")
+
         # Build the full field path
         full_path = f"{prefix}{field_name}" if prefix else field_name
 
@@ -122,6 +128,10 @@ def get_field_info(
             result.update(nested_fields)
 
     return result
+
+
+def is_base_model(tp):
+    return isinstance(tp, type) and not get_origin(tp) and issubclass(tp, BaseModel)
 
 
 class ArgumentParser(argparse.ArgumentParser):

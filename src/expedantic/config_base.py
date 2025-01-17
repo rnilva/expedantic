@@ -281,13 +281,19 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
                 parser.add_argument(*names, **kwargs)
 
-        parser = utils.ArgumentParser()
+        parser = utils.ArgumentParser(add_help=False, usage=argparse.SUPPRESS)
         if require_default_file:
             parser.add_argument(
                 "_config_file_path", type=Path, help="Default Config File Path"
             )
+        parser.add_argument("--help", "-h", action="store_true")
         _parse_params(parser, cls)
         parsed_dict = parser.parse_all_args_as_dict(args)
+
+        if parsed_dict["help"]:
+            printers.help.print_help(cls, replace_underscore_to_hyphen, sep, console)
+            exit(0)
+        del parsed_dict["help"]
 
         if require_default_file:
             with open(parsed_dict["_config_file_path"], "r") as f:
