@@ -171,7 +171,12 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         cls, path: Path | str, diff_print_mode: DIFF_PRINT_MODE = "tree"
     ):
         path = Path(path)
-        instance = pydantic_yaml.parse_yaml_file_as(cls, path)
+        try:
+            instance = pydantic_yaml.parse_yaml_file_as(cls, path)
+        except pydantic.ValidationError as e:
+            printers.print_validation_errors(cls, e)
+            exit(1)
+
         cls.print_diff_to_default(instance.model_dump(), diff_print_mode)
 
     @classmethod
@@ -325,9 +330,13 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         file_dict = update_recursively(file_dict, nested_args_dict)
 
-        instance = cls.model_validate(file_dict)
+        try:
+            instance = cls.model_validate(file_dict)
+        except pydantic.ValidationError as e:
+            printers.print_validation_errors(cls, e)
+            exit(1)
 
-        cls.print_diff_to_default(file_dict, diff_print_mode)
+        cls.print_diff_to_default(instance.model_dump(), diff_print_mode)
 
         return instance
 
@@ -370,31 +379,31 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     def keys(self):
         return self.model_fields.keys()
 
-    _expedantic_root: ClassVar[bool] = True
+    # _expedantic_root: ClassVar[bool] = True
 
-    @pydantic.model_validator(mode="before")
-    @classmethod
-    def _set_root(cls, _):
-        for key, field_info in cls.model_fields.items():
-            tp = field_info.annotation
-            if (
-                isinstance(tp, type)
-                and not get_origin(tp)
-                and issubclass(tp, ConfigBase)
-            ):
-                tp._expedantic_root = False
+    # @pydantic.model_validator(mode="before")
+    # @classmethod
+    # def _set_root(cls, _):
+    #     for key, field_info in cls.model_fields.items():
+    #         tp = field_info.annotation
+    #         if (
+    #             isinstance(tp, type)
+    #             and not get_origin(tp)
+    #             and issubclass(tp, ConfigBase)
+    #         ):
+    #             tp._expedantic_root = False
 
-        return _
+    #     return _
 
-    @pydantic.model_validator(mode="wrap")
-    @classmethod
-    def pretty_print_validation_errors(
-        cls, data: Any, handler: pydantic.ModelWrapValidatorHandler[Self]
-    ) -> Self:
-        try:
-            return handler(data)
-        except pydantic.ValidationError as e:
-            if cls._expedantic_root:
-                printers.print_validation_errors(cls, e)
-                exit(1)
-            raise
+    # @pydantic.model_validator(mode="wrap")
+    # @classmethod
+    # def pretty_print_validation_errors(
+    #     cls, data: Any, handler: pydantic.ModelWrapValidatorHandler[Self]
+    # ) -> Self:
+    #     try:
+    #         return handler(data)
+    #     except pydantic.ValidationError as e:
+    #         if cls._expedantic_root:
+    #             printers.print_validation_errors(cls, e)
+    #             exit(1)
+    #         raise
