@@ -36,6 +36,9 @@ class NOT_PROVIDED_CLASS:
 _NOT_PROVIDED = NOT_PROVIDED_CLASS()
 
 
+DIFF_PRINT_MODE = Literal["none", "tree", "tree_dim", "tree_skip"]
+
+
 class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     model_config = pydantic.ConfigDict(
         extra="forbid", protected_namespaces=("model_", "expedantic_")
@@ -171,8 +174,10 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
     @classmethod
     def parse_args(
         cls,
+        *,
         require_default_file: bool = False,
         replace_underscore_to_hyphen: bool = False,
+        diff_print_mode: DIFF_PRINT_MODE = "tree",
         args: Sequence[str] | None = None,
         sep=".",
     ):
@@ -188,6 +193,11 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         - args (Sequence[str], optional): A list of strings representing the arguments to parse. If None,
         parses arguments from sys.argv. Defaults to None.
         - sep (str, optional): The separator used for nested argument names. Defaults to '.'.
+        - diff_print_mode: Printing mode for displaying the differences. Available modes: ["none", "tree", "tree_dim", "tree_skip"]
+            - "none": No visual output, only returns the comparison result
+            - "tree": Standard tree visualization with all items shown
+            - "tree_dim": Tree visualization with unchanged items dimmed
+            - "tree_skip": Tree visualization that omits unchanged items
 
         Returns:
         An instance of the class, initialised with properties set based on the parsed arguments and
@@ -307,6 +317,20 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         file_dict = update_recursively(file_dict, nested_args_dict)
 
         instance = cls.model_validate(file_dict)
+
+        if "tree" in diff_print_mode:
+            default_dict = utils.get_default_dict(cls, _NOT_PROVIDED)
+            dim_unchanged, skip_unchanged = (
+                diff_print_mode == "tree_dim",
+                diff_print_mode == "tree_skip",
+            )
+            printers.print_tree_diff(
+                default_dict,
+                file_dict,
+                root_name=cls.__name__,
+                dim_unchanged=dim_unchanged,
+                skip_unchanged=skip_unchanged,
+            )
 
         return instance
 

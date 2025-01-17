@@ -35,6 +35,24 @@ def flatten_dict(d: dict[str, Any], parent_key="", sep=".") -> dict[str, Any]:
     return dict(items)
 
 
+def get_default_dict(model: type[BaseModel], not_provided_value=None):
+    result: dict[str, Any] = {}
+    for name, field_info in model.model_fields.items():
+        if field_info.is_required():
+            tp = field_info.annotation
+            if inspect.isclass(tp) and issubclass(tp, BaseModel):
+                value = get_default_dict(tp, not_provided_value)
+            else:
+                value = not_provided_value
+        else:
+            value = field_info.get_default(call_default_factory=True)
+            if isinstance(value, BaseModel):
+                value = get_default_dict(type(value), not_provided_value)
+
+        result[name] = value
+    return result
+
+
 def get_field_info(
     model_cls: Type[BaseModel], prefix: str = "", sep="."
 ) -> dict[str, FieldInfo]:
