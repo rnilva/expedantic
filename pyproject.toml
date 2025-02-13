@@ -16,6 +16,7 @@ keywords = []
 dependencies = [
     "pydantic >= 2.10.5",
     "pydantic_yaml >= 1.3.0",
+    "rich >= 13.7.1",
     "typed-argument-parser",
 ]
 
