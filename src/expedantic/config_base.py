@@ -179,6 +179,8 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         if print_config:
             pprint(instance)
 
+        return instance
+
     @classmethod
     def parse_args(
         cls,
