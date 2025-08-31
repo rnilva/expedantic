@@ -1,27 +1,23 @@
-import inspect
+"""Field types for the logger system.
+
+This module contains all the field implementations that handle different
+aggregation patterns for logged data.
+"""
+
 import threading
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from io import BytesIO
-from pathlib import Path
 from typing import (
-    Annotated,
     Any,
-    Callable,
-    Literal,
     Generic,
     Protocol,
     TypeAlias,
     TypeVar,
     TYPE_CHECKING,
-    get_type_hints,
-    get_origin,
 )
 
 import numpy as np
-import polars as pl
 
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparisonT, SupportsAdd
@@ -365,118 +361,3 @@ class CountField(FieldBase[int]):
             The number of times log() has been called
         """
         return self._count
-
-
-class LoggerBase:
-    """Base class for creating type-safe, structured loggers.
-    
-    LoggerBase uses Python type annotations to automatically create field instances
-    and manage data collection. Subclasses define their schema by simply declaring
-    class attributes with field type annotations.
-    
-    Example:
-        class MyLogger(LoggerBase):
-            iteration: Field[int]
-            loss: MeanField
-            accuracy: MaxField[float]
-        
-        logger = MyLogger()
-        logger.iteration.log(1)
-        logger.loss.log(0.5)
-        entry = logger.flush()  # Computes aggregations and stores entry
-    """
-    
-    def __init__(self) -> None:
-        # Extract field schema from type annotations
-        self.schema = {
-            k: v
-            for k, v in get_type_hints(self).items()
-            if (inspect.isclass(v) and issubclass(v, FieldBase))
-            or ((o := get_origin(v)) is not None and issubclass(o, FieldBase))
-        }
-        # Instantiate field objects
-        for k, v in self.schema.items():
-            setattr(self, k, v())
-
-        self.data: list[dict[str, SupportedTypes]] = []
-
-    def flush(self):
-        """Compute field aggregations and store the results as a data entry.
-        
-        This method collects the current value from each field, computes any
-        necessary aggregations, and stores the results. Fields are reset after
-        flushing (for reducible fields, this means clearing their value lists).
-        
-        Returns:
-            dict: A dictionary mapping field names to their computed values.
-                 Also includes '_timestamp' with the flush time.
-        """
-        items: dict[str, SupportedTypes] = {}
-        for k in self.schema:
-            field: FieldBase = getattr(self, k)
-            value = field.value
-            # Include all values except None (empty collections are valid)
-            if value is not None:
-                items[k] = field.value
-
-        if items:
-            # Add automatic timestamp
-            items['_timestamp'] = datetime.now()
-            self.data.append(items)
-            
-        # Reset fields after flushing
-        for k in self.schema:
-            field: FieldBase = getattr(self, k)
-            field.reset()
-            
-        return items
-
-    def to_dataframe(self) -> pl.DataFrame:
-        """Convert all logged entries to a Polars DataFrame.
-        
-        Returns:
-            pl.DataFrame: A DataFrame with one row per flush() call,
-                         columns for each field, and a '_timestamp' column
-        """
-        return pl.DataFrame(self.data)
-    
-    def save(self, path: str | Path | BytesIO):
-        """Save logged data to a file in Apache Arrow IPC format.
-        
-        Args:
-            path: File path or BytesIO buffer to write to
-        """
-        df = self.to_dataframe()
-        df.write_ipc(path)
-
-    def __len__(self):
-        """Get the number of entries (flush calls) in this logger.
-        
-        Returns:
-            int: The number of data entries
-        """
-        return len(self.data)
-
-
-class TrainingLogger(LoggerBase):
-    """Example logger for machine learning training loops.
-    
-    This logger demonstrates common patterns for tracking training metrics:
-    - Current state values (iteration, epoch, learning_rate)
-    - Averaged metrics (loss, val_loss)  
-    - Peak performance tracking (accuracy)
-    - Accumulated values (batch_time)
-    - Event collection (messages)
-    """
-
-    iteration: Field[int]           # Current training iteration
-    epoch: Field[int]               # Current epoch number
-    loss: MeanField                 # Average training loss per epoch
-    val_loss: MeanField             # Average validation loss per epoch  
-    learning_rate: Field[float]     # Current learning rate
-    messages: ListField[str]        # Collected log messages
-    accuracy: MaxField[float]       # Best accuracy achieved in epoch
-    batch_time: SumField[float]     # Total time spent on batches
-
-
-
