@@ -41,11 +41,34 @@ class LoggerBase:
         """Initialize the logger with field schema and optional sinks.
 
         Args:
-            name: Optional name for this logger instance
-            sinks: List of sinks to receive flushed data. If None, data is only stored internally.
+            name: Optional name for this logger instance. If None, uses decorator-defined
+                  name or falls back to class name.
+            sinks: List of sinks to receive flushed data. If None, uses decorator-defined
+                   sinks or defaults to ConsoleSink.
         """
-        self.name = name or self.__class__.__name__
-        self.sinks: list[SinkProtocol] = sinks or []
+        # Determine name to use
+        if name is not None:
+            self.name = name
+        else:
+            # Check for decorator-defined default name
+            default_name = getattr(self.__class__, "_default_name", None)
+            self.name = default_name or self.__class__.__name__
+
+        # Determine sinks to use (precedence: explicit > decorator > default)
+        if sinks is not None:
+            # Explicit sinks provided - use them
+            self.sinks: list[SinkProtocol] = sinks
+        else:
+            # Check for decorator-defined default sinks
+            default_sinks = getattr(self.__class__, "_default_sinks", None)
+            if default_sinks is not None:
+                # Use decorator-defined sinks (create a copy to avoid shared state)
+                self.sinks = list(default_sinks)
+            else:
+                # Default to console sink for convenience
+                from .sinks import ConsoleSink
+
+                self.sinks = [ConsoleSink()]
 
         # Extract field schema from type annotations
         self.schema = {
