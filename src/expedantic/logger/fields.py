@@ -79,14 +79,14 @@ TSupportsAdd = TypeVar(
 
 class FieldBase(ABC, Generic[T]):
     """Abstract base class for all field types.
-    
+
     Fields are responsible for storing and aggregating logged values.
     Each field type implements different aggregation strategies.
     """
-    
-    def log(self, value: T): 
+
+    def log(self, value: T):
         """Log a value to this field.
-        
+
         Args:
             value: The value to log, must match the field's type T
         """
@@ -94,17 +94,17 @@ class FieldBase(ABC, Generic[T]):
 
     @property
     @abstractmethod
-    def value(self) -> Any: 
+    def value(self) -> Any:
         """Get the current aggregated value of this field.
-        
+
         Returns:
             The aggregated result based on the field's strategy
         """
         ...
-        
+
     def reset(self):
         """Reset the field to its initial state after flush.
-        
+
         This method should be overridden by subclasses that need
         to clear accumulated state.
         """
@@ -113,28 +113,28 @@ class FieldBase(ABC, Generic[T]):
 
 class ReducibleFieldBase(FieldBase[T]):
     """Base class for fields that collect multiple values for aggregation.
-    
+
     This class stores all logged values in a list and provides them
     to subclasses for various reduction operations (mean, max, etc.).
     """
-    
+
     def __init__(self) -> None:
         super().__init__()
         self.values: list[T] = []
 
     def log(self, value: T):
         """Store a value for later aggregation.
-        
+
         Args:
             value: The value to store
-            
+
         Raises:
             ValueError: If value is None
         """
         if value is None:
             raise ValueError(f"Cannot log None value to {self.__class__.__name__}")
         self.values.append(value)
-        
+
     def reset(self):
         """Clear all accumulated values."""
         self.values.clear()
@@ -142,32 +142,34 @@ class ReducibleFieldBase(FieldBase[T]):
 
 class Field(FieldBase[T]):
     """A field that stores only the most recently logged value.
-    
+
     This is useful for tracking current state values like iteration number,
     learning rate, or any metric where only the latest value matters.
     """
-    
+
     def __init__(self) -> None:
         super().__init__()
         self._value: T | None = None
 
     def log(self, value: T):
         """Store the value, overwriting any previous value.
-        
+
         Args:
             value: The value to store
-            
+
         Raises:
             ValueError: If value is None (use explicit None handling if needed)
         """
         if value is None:
-            raise ValueError("Cannot log None value to Field. Use Optional types if None is expected.")
+            raise ValueError(
+                "Cannot log None value to Field. Use Optional types if None is expected."
+            )
         self._value = value
 
     @property
     def value(self) -> T | None:
         """Get the most recently logged value.
-        
+
         Returns:
             The last logged value, or None if nothing has been logged
         """
@@ -176,18 +178,18 @@ class Field(FieldBase[T]):
 
 class MeanField(ReducibleFieldBase[float]):
     """A field that computes the arithmetic mean of all logged values.
-    
+
     Useful for tracking average metrics like loss, accuracy, or timing measurements
     across multiple batches or iterations.
     """
-    
+
     @property
     def value(self) -> float | None:
         """Get the mean of all logged values.
-        
+
         Returns:
             The arithmetic mean, or None if no values have been logged
-            
+
         Raises:
             ValueError: If any logged values are not numeric
         """
@@ -201,18 +203,18 @@ class MeanField(ReducibleFieldBase[float]):
 
 class MaxField(ReducibleFieldBase[SupportsRichComparisonT]):
     """A field that tracks the maximum value among all logged values.
-    
+
     Useful for tracking peak performance metrics like best accuracy
     or highest validation score.
     """
-    
+
     @property
     def value(self):
         """Get the maximum of all logged values.
-        
+
         Returns:
             The maximum value, or None if no values have been logged
-            
+
         Raises:
             TypeError: If values cannot be compared
         """
@@ -226,18 +228,18 @@ class MaxField(ReducibleFieldBase[SupportsRichComparisonT]):
 
 class MinField(ReducibleFieldBase[SupportsRichComparisonT]):
     """A field that tracks the minimum value among all logged values.
-    
+
     Useful for tracking best performance metrics like lowest loss
     or minimum error rate.
     """
-    
+
     @property
     def value(self):
         """Get the minimum of all logged values.
-        
+
         Returns:
             The minimum value, or None if no values have been logged
-            
+
         Raises:
             TypeError: If values cannot be compared
         """
@@ -251,18 +253,18 @@ class MinField(ReducibleFieldBase[SupportsRichComparisonT]):
 
 class StdField(ReducibleFieldBase[float]):
     """A field that computes the standard deviation of all logged values.
-    
+
     Useful for tracking variability in metrics like loss stability
     or measurement precision.
     """
-    
+
     @property
     def value(self) -> float | None:
         """Get the standard deviation of all logged values.
-        
+
         Returns:
             The standard deviation, or None if no values have been logged
-            
+
         Raises:
             ValueError: If any logged values are not numeric
         """
@@ -271,23 +273,25 @@ class StdField(ReducibleFieldBase[float]):
         try:
             return np.std(self.values).item()
         except (TypeError, ValueError) as e:
-            raise ValueError(f"Cannot compute standard deviation of non-numeric values: {e}")
+            raise ValueError(
+                f"Cannot compute standard deviation of non-numeric values: {e}"
+            )
 
 
 class MedianField(ReducibleFieldBase[float]):
     """A field that computes the median of all logged values.
-    
+
     Useful for robust central tendency measurement that's less sensitive
     to outliers than mean.
     """
-    
+
     @property
     def value(self) -> float | None:
         """Get the median of all logged values.
-        
+
         Returns:
             The median value, or None if no values have been logged
-            
+
         Raises:
             ValueError: If any logged values are not numeric
         """
@@ -301,15 +305,15 @@ class MedianField(ReducibleFieldBase[float]):
 
 class SumField(ReducibleFieldBase[TSupportsAdd]):
     """A field that computes the sum of all logged values.
-    
+
     Useful for accumulating values like total training time,
     total number of samples processed, or cumulative costs.
     """
-    
+
     @property
     def value(self):
         """Get the sum of all logged values.
-        
+
         Returns:
             The sum of all values, starting from 0
         """
@@ -318,15 +322,15 @@ class SumField(ReducibleFieldBase[TSupportsAdd]):
 
 class ListField(ReducibleFieldBase[T]):
     """A field that collects all logged values in a list.
-    
+
     Useful for storing sequences of values like error messages,
     file paths, or any data that needs to be kept in full detail.
     """
-    
+
     @property
     def value(self) -> list[T] | None:
         """Get all logged values as a list.
-        
+
         Returns:
             A list containing all logged values in order, or None if empty
         """
@@ -335,19 +339,19 @@ class ListField(ReducibleFieldBase[T]):
 
 class CountField(FieldBase[int]):
     """A field that counts the number of times log() has been called.
-    
+
     The actual value passed to log() is ignored; this field only tracks
     the count of logging events. Useful for counting errors, events, or
     any occurrence-based metrics.
     """
-    
+
     def __init__(self) -> None:
         super().__init__()
         self._count: int = 0
 
     def log(self, value: Any):
         """Increment the counter (value is ignored).
-        
+
         Args:
             value: Ignored, any value can be passed
         """
@@ -356,7 +360,7 @@ class CountField(FieldBase[int]):
     @property
     def value(self) -> int:
         """Get the current count.
-        
+
         Returns:
             The number of times log() has been called
         """

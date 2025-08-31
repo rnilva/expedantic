@@ -6,17 +6,17 @@ and support for multiple output sinks (console, file, WandB, TensorBoard, etc.).
 The logger system is built around three main concepts:
 
 1. **Fields**: Define how individual metrics are aggregated (mean, max, sum, etc.)
-2. **LoggerBase**: The main logger class that manages fields and sinks  
+2. **LoggerBase**: The main logger class that manages fields and sinks
 3. **Sinks**: Output destinations that receive flushed data
 
 Basic usage:
 
     from expedantic.logger import LoggerBase, Field, MeanField, ConsoleSink
-    
+
     class MyLogger(LoggerBase):
         iteration: Field[int]
         loss: MeanField
-    
+
     logger = MyLogger(sinks=[ConsoleSink()])
     logger.iteration.log(1)
     logger.loss.log(0.5)
@@ -60,10 +60,10 @@ from .examples import TrainingLogger
 __all__ = [
     # Field types
     "FieldBase",
-    "ReducibleFieldBase", 
+    "ReducibleFieldBase",
     "Field",
     "MeanField",
-    "MaxField", 
+    "MaxField",
     "MinField",
     "StdField",
     "MedianField",
@@ -74,7 +74,7 @@ __all__ = [
     # Sinks
     "SinkProtocol",
     "ConsoleSink",
-    "FileSink", 
+    "FileSink",
     "WandBSink",
     "TensorBoardSink",
     # Logger base
