@@ -9,18 +9,28 @@ The logger system is built around three main concepts:
 2. **LoggerBase**: The main logger class that manages fields and sinks
 3. **Sinks**: Output destinations that receive flushed data
 
-Basic usage:
+Basic usage with decorators (recommended):
 
-    from expedantic.logger import LoggerBase, Field, MeanField, ConsoleSink
+    from expedantic.logger import LoggerBase, Field, MeanField, logger_sinks, ConsoleSink
+
+    @logger_sinks([ConsoleSink()])
+    class MyLogger(LoggerBase):
+        iteration: Field[int]
+        loss: MeanField
+
+    logger = MyLogger()  # Uses decorated sinks
+    logger.iteration.log(1)
+    logger.loss.log(0.5)
+    logger.flush()  # Sends to all sinks
+
+Alternative explicit usage:
 
     class MyLogger(LoggerBase):
         iteration: Field[int]
         loss: MeanField
 
-    logger = MyLogger(sinks=[ConsoleSink()])
-    logger.iteration.log(1)
-    logger.loss.log(0.5)
-    logger.flush()  # Sends to all sinks
+    logger = MyLogger(sinks=[ConsoleSink()])  # Explicit sinks
+    logger = MyLogger()  # Gets default ConsoleSink
 
 For more complex scenarios, see examples in the examples/ directory.
 """
@@ -53,6 +63,9 @@ from .sinks import (
 # Import main logger class
 from .base import LoggerBase
 
+# Import decorators
+from .decorators import logger_sinks, logger_name
+
 # Import example loggers
 from .examples import TrainingLogger
 
@@ -79,6 +92,9 @@ __all__ = [
     "TensorBoardSink",
     # Logger base
     "LoggerBase",
+    # Decorators
+    "logger_sinks",
+    "logger_name",
     # Examples
     "TrainingLogger",
 ]

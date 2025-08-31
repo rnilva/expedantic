@@ -190,7 +190,7 @@ class TestMultiSinkLogger:
 
     def test_add_remove_sinks(self):
         """Test adding and removing sinks dynamically."""
-        logger = TestLogger()
+        logger = TestLogger(sinks=[])  # Start with no sinks
 
         sink1 = Mock()
         sink2 = Mock()
