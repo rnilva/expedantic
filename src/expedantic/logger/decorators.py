@@ -4,14 +4,15 @@ This module provides decorators to configure logger behavior in a clean,
 declarative way directly on the logger class definition.
 """
 
-from typing import Any, Type, TypeVar
+from typing import Callable, Type, TypeVar
+from .base import LoggerBase
 from .sinks import SinkProtocol
 
 # Type variable for the decorated class
-T = TypeVar("T")
+T = TypeVar("T", bound=LoggerBase)
 
 
-def logger_sinks(sinks: list[SinkProtocol]) -> callable:
+def logger_sinks(sinks: list[SinkProtocol]):
     """Decorator to configure default sinks for a logger class.
 
     This decorator allows you to specify sinks directly on the logger class
@@ -62,7 +63,7 @@ def logger_sinks(sinks: list[SinkProtocol]) -> callable:
     return decorator
 
 
-def logger_name(name: str) -> callable:
+def logger_name(name: str):
     """Decorator to set a default name for a logger class.
 
     This decorator allows you to specify a default name that will be used
