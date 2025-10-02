@@ -35,8 +35,11 @@ class Config(ConfigBase):
 
 
 if __name__ == "__main__":
-    config = Config(gan_config={"name": "WGAN"})  # type: ignore
-    print(config.gan_config)
+    import sys
+
+    sys.argv.append("--gan_config.name=WGAN")
+
+    config = Config.parse_args(diff_print_mode="tree_dim", print_config=False)
     """
     name='WGAN' learning_rate_generator=0.0001 
     learning_rate_discriminator=1e-05 batch_size=128
