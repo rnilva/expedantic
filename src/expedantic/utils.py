@@ -132,7 +132,11 @@ def get_field_info(
 
         # Recursively process nested BaseModels
         if isinstance(field_type, type) and issubclass(field_type, BaseModel):
-            nested_fields = get_field_info(field_type, prefix=f"{full_path}{sep}")
+            nested_fields = get_field_info(
+                field_type,
+                prefix=f"{full_path}{sep}",
+                underscore_to_hyphen=underscore_to_hyphen,
+            )
             result.update(nested_fields)
 
     return result
