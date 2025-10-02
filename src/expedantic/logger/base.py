@@ -23,6 +23,26 @@ class LoggerBase:
     and manage data collection. Subclasses define their schema by simply declaring
     class attributes with field type annotations.
 
+    Configuration can be done in three ways:
+
+    1. Using decorators (recommended for complex setups):
+        @logger_sinks([ConsoleSink(), FileSink("log.jsonl")])
+        @logger_name("MyLogger")
+        class MyLogger(LoggerBase):
+            iteration: Field[int]
+            loss: MeanField
+
+    2. Using class attributes (great for IDE autocompletion):
+        class MyLogger(LoggerBase):
+            _sinks: list[SinkProtocol] = [ConsoleSink(), FileSink("log.jsonl")]
+            _name: str = "MyLogger"
+
+            iteration: Field[int]
+            loss: MeanField
+
+    3. Using constructor parameters (runtime configuration):
+        logger = MyLogger(name="Custom", sinks=[ConsoleSink()])
+
     Example:
         class MyLogger(LoggerBase):
             iteration: Field[int]
@@ -35,47 +55,66 @@ class LoggerBase:
         entry = logger.flush()  # Computes aggregations and stores entry
     """
 
+    # Configuration class attributes (for IDE autocompletion)
+    # Users can override these in their subclasses
+    _sinks: list[SinkProtocol] | None = None
+    _name: str | None = None
+
     def __init__(
         self, name: str | None = None, sinks: list[SinkProtocol] | None = None
     ) -> None:
         """Initialize the logger with field schema and optional sinks.
 
         Args:
-            name: Optional name for this logger instance. If None, uses decorator-defined
-                  name or falls back to class name.
-            sinks: List of sinks to receive flushed data. If None, uses decorator-defined
-                   sinks or defaults to ConsoleSink.
+            name: Optional name for this logger instance. If None, uses class attribute
+                  _name, decorator-defined name, or falls back to class name.
+            sinks: List of sinks to receive flushed data. If None, uses class attribute
+                   _sinks, decorator-defined sinks, or defaults to ConsoleSink.
         """
-        # Determine name to use
+        # Determine name to use (precedence: explicit > class attribute > decorator > class name)
         if name is not None:
             self.name = name
         else:
-            # Check for decorator-defined default name
-            default_name = getattr(self.__class__, "_default_name", None)
-            self.name = default_name or self.__class__.__name__
+            # Check for class-level _name attribute
+            class_name = getattr(self.__class__, "_name", None)
+            if class_name is not None:
+                self.name = class_name
+            else:
+                # Check for decorator-defined default name
+                default_name = getattr(self.__class__, "_default_name", None)
+                self.name = default_name or self.__class__.__name__
 
-        # Determine sinks to use (precedence: explicit > decorator > default)
+        # Determine sinks to use (precedence: explicit > class attribute > decorator > default)
         if sinks is not None:
             # Explicit sinks provided - use them
             self.sinks: list[SinkProtocol] = sinks
         else:
-            # Check for decorator-defined default sinks
-            default_sinks = getattr(self.__class__, "_default_sinks", None)
-            if default_sinks is not None:
-                # Use decorator-defined sinks (create a copy to avoid shared state)
-                self.sinks = list(default_sinks)
+            # Check for class-level _sinks attribute
+            class_sinks = getattr(self.__class__, "_sinks", None)
+            if class_sinks is not None:
+                # Use class-defined sinks (create a copy to avoid shared state)
+                self.sinks = list(class_sinks)
             else:
-                # Default to console sink for convenience
-                from .sinks import ConsoleSink
+                # Check for decorator-defined default sinks
+                default_sinks = getattr(self.__class__, "_default_sinks", None)
+                if default_sinks is not None:
+                    # Use decorator-defined sinks (create a copy to avoid shared state)
+                    self.sinks = list(default_sinks)
+                else:
+                    # Default to console sink for convenience
+                    from .sinks import ConsoleSink
 
-                self.sinks = [ConsoleSink()]
+                    self.sinks = [ConsoleSink()]
 
-        # Extract field schema from type annotations
+        # Extract field schema from type annotations, excluding configuration attributes
         self.schema = {
             k: v
             for k, v in get_type_hints(self).items()
-            if (inspect.isclass(v) and issubclass(v, FieldBase))
-            or ((o := get_origin(v)) is not None and issubclass(o, FieldBase))
+            if k not in ("_sinks", "_name")  # Skip configuration attributes
+            and (
+                (inspect.isclass(v) and issubclass(v, FieldBase))
+                or ((o := get_origin(v)) is not None and issubclass(o, FieldBase))
+            )
         }
         # Instantiate field objects
         for k, v in self.schema.items():

@@ -9,30 +9,58 @@ The logger system is built around three main concepts:
 2. **LoggerBase**: The main logger class that manages fields and sinks
 3. **Sinks**: Output destinations that receive flushed data
 
-Basic usage with decorators (recommended):
+## Configuration Approaches
 
-    from expedantic.logger import LoggerBase, Field, MeanField, logger_sinks, ConsoleSink
+### 1. Class Attributes (Great for IDE autocompletion)
 
-    @logger_sinks([ConsoleSink()])
+    from expedantic.logger import LoggerBase, Field, MeanField, ConsoleSink, FileSink
+
+    class MyLogger(LoggerBase):
+        _sinks = [ConsoleSink(), FileSink("training.log")]
+        _name = "TrainingLogger"
+
+        iteration: Field[int]
+        loss: MeanField
+
+    logger = MyLogger()  # Uses class attribute sinks and name
+
+### 2. Decorators (Recommended for complex setups)
+
+    from expedantic.logger import LoggerBase, Field, MeanField, logger_sinks, logger_name
+
+    @logger_sinks([ConsoleSink(), FileSink("training.log")])
+    @logger_name("TrainingLogger")
     class MyLogger(LoggerBase):
         iteration: Field[int]
         loss: MeanField
 
-    logger = MyLogger()  # Uses decorated sinks
+    logger = MyLogger()  # Uses decorated sinks and name
+
+### 3. Runtime Configuration (Flexible)
+
+    class MyLogger(LoggerBase):
+        iteration: Field[int]
+        loss: MeanField
+
+    logger = MyLogger(name="Custom", sinks=[ConsoleSink()])  # Explicit parameters
+    logger = MyLogger()  # Gets default ConsoleSink and class name
+
+## Precedence Order
+
+Configuration follows this precedence (highest to lowest):
+1. Constructor parameters (runtime)
+2. Class attributes (`_sinks`, `_name`)
+3. Decorators (`@logger_sinks`, `@logger_name`)
+4. Defaults (ConsoleSink, class name)
+
+## Basic Usage
+
+    logger = MyLogger()
     logger.iteration.log(1)
     logger.loss.log(0.5)
-    logger.flush()  # Sends to all sinks
+    logger.flush()  # Sends to all configured sinks
 
-Alternative explicit usage:
-
-    class MyLogger(LoggerBase):
-        iteration: Field[int]
-        loss: MeanField
-
-    logger = MyLogger(sinks=[ConsoleSink()])  # Explicit sinks
-    logger = MyLogger()  # Gets default ConsoleSink
-
-For more complex scenarios, see examples in the examples/ directory.
+For more examples, see the examples/ directory.
 """
 
 # Import all field types
