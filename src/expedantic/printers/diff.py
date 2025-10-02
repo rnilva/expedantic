@@ -1,8 +1,8 @@
-from typing import Any, Literal, get_origin
+from typing import Any, Literal, Optional, get_origin
 from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
-from rich.style import Style
+from rich.style import Style, StyleType
 from rich.text import Text
 from rich.tree import Tree
 
@@ -11,7 +11,7 @@ from ..utils import _NOT_PROVIDED
 
 DIFF_STYLE_MAP: dict[
     Literal["previous", "current", "removed", "added", "unchanged", "modified"],
-    Style | str,
+    StyleType,
 ] = {
     "previous": "deep_pink2",
     "current": "turquoise2",
@@ -71,12 +71,10 @@ def create_diff_tree(
             ...
         return f": {repr(v)}"
 
-    def create_value_text(
-        key: str, value: Any, style_override: str | None = None
-    ) -> Text:
+    def create_value_text(key: str, value: Any, style: StyleType | None = None) -> Text:
         value_str = format_value(value)
-        key_style = style_override or "default"
-        value_style = style_override or get_value_style(value)
+        key_style = style or "default"
+        value_style = style or get_value_style(value)
 
         if value_str:
             return Text.assemble((key, key_style), (value_str, value_style))
@@ -86,7 +84,7 @@ def create_diff_tree(
         d: dict[str, Any],
         tree: Tree,
         other_dict: dict[str, Any] | None = None,
-        style: str | None = None,
+        style: StyleType | None = None,
     ) -> None:
         for key, value in sorted(d.items()):
             if other_dict is None or key not in other_dict:
@@ -97,13 +95,13 @@ def create_diff_tree(
                 elif isinstance(value, list):
                     add_list_to_tree(value, node, style=style)
 
-    def add_list_to_tree(lst: list, tree: Tree, style: str | None = None) -> None:
+    def add_list_to_tree(lst: list, tree: Tree, style: StyleType | None = None) -> None:
         for i, value in enumerate(lst):
             if isinstance(value, dict):
-                node = tree.add(Text(f"[{i}]", style=style))
+                node = tree.add(Text(f"[{i}]"), style=style)
                 add_dict_to_tree(value, node, style=style)
             else:
-                tree.add(Text(f"[{i}] {repr(value)}", style=style))
+                tree.add(Text(f"[{i}] {repr(value)}"), style=style)
 
     def compare_values(key: str, v1: Any, v2: Any, tree: Tree) -> None:
         if isinstance(v2, dict):
