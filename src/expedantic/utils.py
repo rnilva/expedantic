@@ -15,6 +15,9 @@ class NOT_PROVIDED_CLASS:
     def __repr__(self) -> str:
         return "NOT_PROVIDED"
 
+    def __deepcopy__(self, memo):
+        return self  # singleton: identity checks in the diff renderer must survive deep copies
+
 
 _NOT_PROVIDED = NOT_PROVIDED_CLASS()
 
@@ -89,9 +92,6 @@ class FlexibleBooleanAction(argparse.Action):
                 f"{option_string}: expected a boolean "
                 f"(true/false, 1/0, yes/no — or use --no-{(option_string or '--')[2:]}), got {values!r}"
             )
-
-    def format_usage(self):
-        return " | ".join(self.option_strings)
 
 
 def flatten_dict(d: dict[str, Any], parent_key="", sep=".") -> dict[str, Any]:

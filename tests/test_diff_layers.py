@@ -76,6 +76,43 @@ class TestLayeredParse(unittest.TestCase):
         self.assertIn("config file", out)
         self.assertIn("CLI overrides", out)
 
+    def test_empty_config_file_means_no_overrides(self):
+        for content in ("", "# just a comment\n"):
+            path = self._yaml(content)
+            cfg = Config.parse_args(
+                require_default_file=True,
+                args=[str(path)],
+                diff_print_mode="none",
+                print_config=False,
+            )
+            self.assertEqual(cfg.tag, "run")
+            self.assertEqual(cfg.train.lrm, 0.5)
+
+    def test_required_field_fallback_keeps_sentinel_identity(self):
+        from expedantic.utils import _NOT_PROVIDED, compose_layers
+
+        out = compose_layers({"req": _NOT_PROVIDED, "n": {"x": _NOT_PROVIDED}}, {})
+        self.assertIs(out["req"], _NOT_PROVIDED)
+        self.assertIs(out["n"]["x"], _NOT_PROVIDED)
+
+    def test_required_field_missing_from_file_still_prints(self):
+        class Strict(ConfigBase):
+            must: str            # required, no default
+            lrm: float = 0.5
+
+        path = self._yaml("lrm: 0.25\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cfg = Strict.parse_args(
+                require_default_file=True,
+                args=[str(path), "--must", "given"],
+                diff_print_mode="tree",
+                print_config=False,
+            )
+        self.assertEqual(cfg.must, "given")
+        self.assertEqual(cfg.lrm, 0.25)
+        self.assertIn("CLI overrides", buf.getvalue())
+
     def test_no_file_single_stage(self):
         buf = io.StringIO()
         with redirect_stdout(buf):

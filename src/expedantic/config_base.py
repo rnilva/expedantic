@@ -308,7 +308,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         if require_default_file:
             with open(parsed_dict["_config_file_path"], "r") as f:
-                file_dict = YAML().load(f)
+                file_dict = YAML().load(f) or {}  # empty / comments-only file = no overrides
             del parsed_dict["_config_file_path"]
         else:
             file_dict = {}
