@@ -136,7 +136,7 @@ def create_diff_tree(
                 node_1 = node.add(Text("Previous:", style=DIFF_STYLE_MAP["previous"]))
                 for i, v in enumerate(v1):
                     node_1.add(
-                        create_value_text(f"[{i}]", v, style=DIFF_STYLE_MAP["previous"])
+                        create_value_text(f"[{i}]", v, DIFF_STYLE_MAP["previous"])
                     )
                 node_2 = node.add(Text("Current:", style=DIFF_STYLE_MAP["current"]))
                 for i, v in enumerate(v2):
