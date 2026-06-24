@@ -106,21 +106,47 @@ class LoggerBase:
 
                     self.sinks = [ConsoleSink()]
 
-        # Extract field schema from type annotations, excluding configuration attributes
-        self.schema = {
-            k: v
-            for k, v in get_type_hints(self).items()
-            if k not in ("_sinks", "_name")  # Skip configuration attributes
-            and (
-                (inspect.isclass(v) and issubclass(v, FieldBase))
-                or ((o := get_origin(v)) is not None and issubclass(o, FieldBase))
-            )
-        }
+        # Extract field schema from type annotations, excluding configuration attributes.
+        self.schema = self._resolve_schema()
         # Instantiate field objects
         for k, v in self.schema.items():
             setattr(self, k, v())
 
         self.data: list[dict[str, SupportedTypes]] = []
+
+    def _resolve_schema(self) -> dict:
+        """Resolve the field schema from this class's (and its bases') annotations.
+
+        Type hints are resolved per-class so that ``from __future__ import annotations``
+        in a subclass module does not break resolution: each class's stringized
+        annotations (e.g. ``Field[int]``) are evaluated against *that* class's own
+        module globals (``sys.modules[cls.__module__].__dict__``), which is exactly the
+        namespace where the subclass imported its field types. Resolving against a single
+        merged namespace (the old ``get_type_hints(self)`` call) instead raised
+        ``NameError: name 'Field' is not defined`` whenever a subclass deferred its
+        annotations.
+
+        Bases are walked in reverse MRO order so the most-derived class's annotation
+        wins on name collisions, matching normal attribute-override semantics.
+        """
+        schema: dict = {}
+        for cls in reversed(type(self).__mro__):
+            if cls is object or "__annotations__" not in cls.__dict__:
+                continue
+            try:
+                hints = get_type_hints(cls)
+            except Exception:
+                # Fall back to a per-class best effort; skip a class whose hints
+                # cannot be resolved rather than failing the whole logger.
+                continue
+            for k, v in hints.items():
+                if k in ("_sinks", "_name"):  # Skip configuration attributes
+                    continue
+                if (inspect.isclass(v) and issubclass(v, FieldBase)) or (
+                    (o := get_origin(v)) is not None and issubclass(o, FieldBase)
+                ):
+                    schema[k] = v
+        return schema
 
     def flush(self):
         """Compute field aggregations and store the results as a data entry.
@@ -144,6 +170,12 @@ class LoggerBase:
         if items:
             # Add automatic timestamp
             items["_timestamp"] = datetime.now()
+            # Stamp the logger name into the canonical row so EVERY sink and
+            # to_dataframe()/save() see identical keys. Previously FileSink injected
+            # a "_logger" key on its own, so the JSONL carried "_logger" while the
+            # in-memory data / parquet did not — mismatched schemas across outputs.
+            if self.name is not None:
+                items["_logger"] = self.name
             self.data.append(items)
 
             # Send to all sinks
@@ -191,6 +223,56 @@ class LoggerBase:
             int: The number of data entries
         """
         return len(self.data)
+
+    def add_field(self, name: str, field_type) -> FieldBase:
+        """Register a new field on this logger instance at runtime.
+
+        Use this for fields whose names/count are not known at class-definition
+        time (e.g. one column per layer of a net). It mirrors the schema setup done
+        in ``__init__``: it records ``field_type`` in ``self.schema``, instantiates the
+        field, and binds it as ``self.<name>`` so ``self.<name>.log(...)`` works and the
+        column appears in ``flush()`` rows / ``to_dataframe()``.
+
+        Args:
+            name: The field (column) name to register.
+            field_type: A ``FieldBase`` subclass or parameterized field type
+                (e.g. ``Field``, ``Field[int]``, ``MeanField``).
+
+        Returns:
+            FieldBase: The instantiated field, the same object as ``getattr(self, name)``.
+
+        Raises:
+            TypeError: If ``field_type`` is not a field type.
+            ValueError: If ``name`` is already registered with a *different* type.
+
+        Note:
+            Idempotent: re-adding the same ``name`` with the same ``field_type`` returns
+            the existing field and does not reset its accumulated values.
+        """
+        # Validate that field_type really is a field (class or parameterized generic).
+        origin = get_origin(field_type)
+        is_field_type = (
+            inspect.isclass(field_type) and issubclass(field_type, FieldBase)
+        ) or (origin is not None and issubclass(origin, FieldBase))
+        if not is_field_type:
+            raise TypeError(
+                f"add_field expected a FieldBase subclass or parameterized field type, "
+                f"got {field_type!r}"
+            )
+
+        if name in self.schema:
+            if self.schema[name] is field_type:
+                # Idempotent no-op: keep the existing field (and its state).
+                return getattr(self, name)
+            raise ValueError(
+                f"Field {name!r} already registered as {self.schema[name]!r}; "
+                f"cannot re-register as {field_type!r}"
+            )
+
+        self.schema[name] = field_type
+        field = field_type()
+        setattr(self, name, field)
+        return field
 
     def add_sink(self, sink: SinkProtocol) -> None:
         """Add a sink to receive flushed data.
