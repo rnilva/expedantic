@@ -85,8 +85,12 @@ class ConsoleSink:
         if self.show_logger_name and logger_name:
             parts.append(f"[bold blue]{logger_name}[/bold blue]")
 
-        # Format the data (excluding timestamp since we handle it separately)
-        data_items = {k: v for k, v in data.items() if k != "_timestamp"}
+        # Format the data (excluding the metadata keys we handle separately).
+        # "_logger" carries the logger name (shown above via logger_name); don't
+        # also dump it inline as a field.
+        data_items = {
+            k: v for k, v in data.items() if k not in ("_timestamp", "_logger")
+        }
 
         if data_items:
             formatted_data = []
@@ -139,9 +143,15 @@ class FileSink:
         with self._lock:
             self._ensure_open()
 
-            # Prepare data for JSON serialization
+            # Prepare data for JSON serialization.
+            #
+            # The logger name is carried in the canonical row under "_logger"
+            # (stamped by LoggerBase.flush), so it is serialized like any other key
+            # below and the JSONL matches to_dataframe()/save() exactly. For callers
+            # that invoke write() directly without a "_logger" key in `data`, fall
+            # back to the logger_name argument so nothing is lost.
             json_data = {}
-            if logger_name:
+            if logger_name and "_logger" not in data:
                 json_data["_logger"] = logger_name
 
             for key, value in data.items():
@@ -181,6 +191,16 @@ class WandBSink:
 
     Automatically handles different data types and creates appropriate
     WandB log entries. Requires wandb to be installed and initialized.
+
+    Note on multiple sinks sharing a step:
+        It is common to have two ``WandBSink`` instances (e.g. one for the train
+        logger and one for the eval logger) that resolve to the *same* ``step``
+        value for a given iteration. This is benign and intentional — ``wandb.log``
+        merges metrics logged at the same step into one row, so train and eval
+        metrics for iteration ``it`` land together. Just be aware the step is shared
+        implicitly via ``step_field``: keep ``step_field`` consistent across sinks that
+        should share a step, and use distinct ``prefix`` values if a metric *name*
+        would otherwise collide between the two sinks at the same step.
     """
 
     def __init__(
@@ -224,8 +244,8 @@ class WandBSink:
         step = None
 
         for key, value in data.items():
-            if key == "_timestamp":
-                continue  # WandB handles timestamps automatically
+            if key in ("_timestamp", "_logger"):
+                continue  # metadata: WandB handles timestamps; logger name is not a metric
 
             # Extract step if present
             if key == self.step_field:
