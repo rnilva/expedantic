@@ -175,4 +175,129 @@ Find some examples [here](./examples/).
 
     ```
 
+## Logger Module
+
+Expedantic now includes a comprehensive type-safe logging framework designed for machine learning training loops and data collection scenarios.
+
+### Logger Features
+
+- **Type-safe field system** with 8 different field types for various aggregation patterns
+- **Automatic timestamping** for all log entries  
+- **Field reset** after flush to prevent data leakage between entries
+- **DataFrame export** capabilities with Polars integration
+- **Input validation** and comprehensive error handling
+
+### Field Types
+
+- `Field[T]`: Stores the last logged value
+- `MeanField`: Computes average of all logged values  
+- `MaxField`/`MinField`: Tracks maximum/minimum value across all logs
+- `SumField`: Accumulates all logged values
+- `ListField`: Collects all logged values in a list
+- `CountField`: Counts occurrences (ignores actual values)
+- `StdField`/`MedianField`: Computes statistical measures
+
+### Basic Logger Usage
+
+```python
+from expedantic.logger import LoggerBase, Field, MeanField, MaxField
+
+# Define a custom logger
+class MyLogger(LoggerBase):
+    iteration: Field[int]
+    loss: MeanField
+    accuracy: MaxField[float]
+
+# Use the logger
+logger = MyLogger()
+logger.iteration.log(1)
+logger.loss.log(0.5)
+logger.accuracy.log(0.95)
+
+# Flush computes aggregations and stores entry
+entry = logger.flush()
+print(entry)  # {'iteration': 1, 'loss': 0.5, 'accuracy': 0.95, '_timestamp': datetime(...)}
+
+# Export to DataFrame
+df = logger.to_dataframe()
+logger.save("data.ipc")  # Save to file
+```
+
+### Training Loop Example
+
+```python
+import numpy as np
+from expedantic.logger import LoggerBase, Field, MeanField, MaxField, SumField, ListField
+
+class TrainingLogger(LoggerBase):
+    """Logger for machine learning training loops."""
+    
+    iteration: Field[int]           # Current training iteration
+    epoch: Field[int]               # Current epoch number
+    loss: MeanField                 # Average training loss per epoch
+    val_loss: MeanField             # Average validation loss per epoch  
+    learning_rate: Field[float]     # Current learning rate
+    messages: ListField[str]        # Collected log messages
+    accuracy: MaxField[float]       # Best accuracy achieved in epoch
+    batch_time: SumField[float]     # Total time spent on batches
+
+# Realistic training loop usage
+logger = TrainingLogger()
+
+for epoch in range(3):
+    logger.epoch.log(epoch)
+    
+    # Training phase
+    for batch in range(10):
+        logger.iteration.log(epoch * 10 + batch)
+        
+        # Simulate batch metrics (will be reduced)
+        logger.loss.log(0.5 - epoch * 0.1 + np.random.normal(0, 0.05))
+        logger.batch_time.log(0.1 + np.random.random() * 0.05)
+    
+    # Validation phase
+    for val_batch in range(3):
+        logger.val_loss.log(0.4 - epoch * 0.05 + np.random.normal(0, 0.03))
+        logger.accuracy.log(0.7 + epoch * 0.1 + np.random.normal(0, 0.02))
+    
+    logger.messages.log(f"Epoch {epoch} complete")
+    logger.learning_rate.log(0.001 * (0.9**epoch))
+    
+    # Flush computes all reductions
+    entry = logger.flush()
+    
+    print(f"Epoch {epoch}:")
+    print(f"  Loss: {entry['loss']:.4f} (avg of 10 batches)")
+    print(f"  Val Loss: {entry.get('val_loss', 0):.4f} (avg of 3 batches)")
+    print(f"  Best Accuracy: {entry.get('accuracy', 0):.4f}")
+    print(f"  Total Time: {entry.get('batch_time', 0):.2f}s")
+
+# Export results
+df = logger.to_dataframe()
+print(df)
+```
+
+### Simple Logger Example
+
+```python
+from expedantic.logger import LoggerBase, Field, MeanField
+import numpy as np
+
+class SimpleLogger(LoggerBase):
+    """Minimal logger for quick experiments."""
+    
+    step: Field[int]
+    value: MeanField
+
+logger = SimpleLogger()
+
+for i in range(100):
+    logger.step.log(i)
+    logger.value.log(np.sin(i * 0.1) + np.random.normal(0, 0.1))
+    
+    if (i + 1) % 10 == 0:
+        entry = logger.flush()
+        print(f"Step {entry['step']}: avg={entry['value']:.3f}")
+```
+
 

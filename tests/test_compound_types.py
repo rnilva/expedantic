@@ -66,7 +66,7 @@ class TestCompoundTypes(unittest.TestCase):
         config = parse_yaml_raw_as(
             Config, "python_typed_dict: {'name': Tom, 'age': 17}"
         )
-        self.assertEqual(config.python_typed_dict, {'name': 'Tom', 'age': 17})
+        self.assertEqual(config.python_typed_dict, {"name": "Tom", "age": 17})
 
 
 if __name__ == "__main__":
