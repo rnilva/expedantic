@@ -15,6 +15,9 @@ class NOT_PROVIDED_CLASS:
     def __repr__(self) -> str:
         return "NOT_PROVIDED"
 
+    def __deepcopy__(self, memo):
+        return self  # singleton: identity checks in the diff renderer must survive deep copies
+
 
 _NOT_PROVIDED = NOT_PROVIDED_CLASS()
 
@@ -30,6 +33,65 @@ def get_kwargs(cls: Type):
         if v.kind != POS_ONLY
     }
     return kw_args
+
+
+def update_recursively(d: dict, other: dict) -> dict:
+    """Deep-merge `other` into `d` (in place), recursing into nested dicts."""
+    for k, v in other.items():
+        if isinstance(v, dict):
+            d[k] = update_recursively(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+
+def compose_layers(base: dict[str, Any], layer: dict[str, Any]) -> dict[str, Any]:
+    """Return a new dict = `base` deep-overridden by `layer` (neither input is mutated)."""
+    from copy import deepcopy
+
+    return update_recursively(deepcopy(base), deepcopy(layer))
+
+
+class FlexibleBooleanAction(argparse.Action):
+    """Boolean flag that accepts every conventional spelling.
+
+    Supported forms: `--flag` (True), `--no-flag` (False), `--flag true|false|1|0|yes|no|t|f|y|n`
+    (case-insensitive), and `--flag=VALUE`. An unrecognised value raises a parser error naming the
+    accepted spellings instead of argparse's opaque "unrecognized arguments".
+    """
+
+    _TRUE = {"true", "1", "yes", "t", "y"}
+    _FALSE = {"false", "0", "no", "f", "n"}
+
+    def __init__(self, option_strings, dest, default=None, required=False, help=None, **kwargs):
+        kwargs.pop("type", None)  # parity with BooleanOptionalAction: type is implied
+        opts = list(option_strings)
+        for opt in option_strings:
+            if opt.startswith("--") and not opt.startswith("--no-"):
+                opts.append("--no-" + opt[2:])
+        super().__init__(
+            opts, dest, nargs="?", const=None, default=default, required=required, help=help, **kwargs
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string and option_string.startswith("--no-"):
+            if values is not None:
+                parser.error(f"{option_string} takes no value")
+            setattr(namespace, self.dest, False)
+            return
+        if values is None:
+            setattr(namespace, self.dest, True)
+            return
+        v = str(values).strip().lower()
+        if v in self._TRUE:
+            setattr(namespace, self.dest, True)
+        elif v in self._FALSE:
+            setattr(namespace, self.dest, False)
+        else:
+            parser.error(
+                f"{option_string}: expected a boolean "
+                f"(true/false, 1/0, yes/no — or use --no-{(option_string or '--')[2:]}), got {values!r}"
+            )
 
 
 def flatten_dict(d: dict[str, Any], parent_key="", sep=".") -> dict[str, Any]:

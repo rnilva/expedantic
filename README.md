@@ -111,6 +111,25 @@ Find some examples [here](./examples/).
     python run.py --inner_config.inner_key "another inner value" --outer_key 20
     ```
 
+    Boolean fields accept every conventional spelling: `--flag` (true), `--no-flag` (false),
+    `--flag true|false|1|0|yes|no` (and `t/f/y/n`), and `--flag=false`. An unrecognised value
+    fails with a message naming the accepted forms. With `require_default_file=True`, put the
+    config-file path before any bare `--flag` (a bare flag would otherwise try to consume the
+    path as its value, and fail loudly).
+
+- Configuration provenance — layered diffs. With a config file
+  (`parse_args(require_default_file=True)`), the printed diff splits into one tree per layer:
+  `defaults → config file` (how the committed file deviates from the schema defaults) and
+  `config file → CLI overrides` (how *this invocation* deviates from the file). A captured
+  stdout log therefore records exactly how each run differed from its committed configuration —
+  per-run provenance for free. Use `diff_print_mode="tree_skip"` for the most compact form:
+    ```shell
+    python run.py configs/cell_a.yaml --train.iters 1200
+    # prints two diff trees (schematically):
+    #   📦 Config — config file      tag: 'run' → 'cell_a', train.lrm: 0.5 → 0.25
+    #   📦 Config — CLI overrides    train.iters: 2400 → 1200
+    ```
+
 - `!include` directive support for yaml files:
     ```yaml
     # base.yaml

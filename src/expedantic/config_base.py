@@ -251,7 +251,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 if tp is Any:
                     kwargs["type"] = str
                 elif tp is bool:
-                    kwargs["action"] = argparse.BooleanOptionalAction
+                    kwargs["action"] = utils.FlexibleBooleanAction
                 elif origin is Literal:
                     var_type, literals = utils.get_literals(tp, name)
                     kwargs["type"] = var_type
@@ -308,7 +308,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
 
         if require_default_file:
             with open(parsed_dict["_config_file_path"], "r") as f:
-                file_dict = YAML().load(f)
+                file_dict = YAML().load(f) or {}  # empty / comments-only file = no overrides
             del parsed_dict["_config_file_path"]
         else:
             file_dict = {}
@@ -323,15 +323,8 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 current_level = current_level.setdefault(key, {})
             current_level[keys[-1]] = v
 
-        def update_recursively(d: dict, other: dict):
-            for k, v in other.items():
-                if isinstance(v, dict):
-                    d[k] = update_recursively(d.get(k, {}), v)
-                else:
-                    d[k] = v
-            return d
-
-        file_dict = update_recursively(file_dict, nested_args_dict)
+        file_layer = utils.compose_layers({}, file_dict)             # snapshot before the CLI merge (provenance)
+        file_dict = utils.update_recursively(file_dict, nested_args_dict)
 
         try:
             instance = cls.model_validate(file_dict)
@@ -339,7 +332,7 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
             printers.print_validation_errors(cls, e)
             exit(1)
 
-        cls.print_diff_to_default(instance.model_dump(), diff_print_mode)
+        cls.print_diff_layered(file_layer, instance.model_dump(), diff_print_mode)
 
         if print_config:
             pprint(instance)
@@ -363,6 +356,51 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
                 dim_unchanged=dim_unchanged,
                 skip_unchanged=skip_unchanged,
             )
+
+    @classmethod
+    def print_diff_layered(
+        cls,
+        file_layer: dict[str, Any],
+        final: dict[str, Any],
+        diff_print_mode: DIFF_PRINT_MODE,
+    ):
+        """Provenance-aware diff: one tree per configuration layer.
+
+        Without a config file this is identical to `print_diff_to_default`. With one, two stages
+        print: `defaults -> config file` (how the loaded file deviates from the schema defaults)
+        and `config file -> final` (how THIS invocation's CLI overrides deviate from the file) —
+        the second tree is the per-run provenance record: a stdout log containing it shows exactly
+        how the run differed from its committed configuration.
+        """
+        if "tree" not in diff_print_mode:
+            return
+        if not file_layer:
+            cls.print_diff_to_default(final, diff_print_mode)
+            return
+        default_dict = utils.get_default_dict(cls, utils._NOT_PROVIDED)
+        base = utils.compose_layers(default_dict, file_layer)
+        try:  # normalize through the model so YAML-vs-coerced reprs don't show as spurious deltas
+            base = cls.model_validate(base).model_dump()
+        except pydantic.ValidationError:
+            pass  # required fields absent from the file: display the raw layers instead
+        dim_unchanged, skip_unchanged = (
+            diff_print_mode == "tree_dim",
+            diff_print_mode == "tree_skip",
+        )
+        printers.print_tree_diff(
+            default_dict,
+            base,
+            root_name=f"{cls.__name__} — config file",
+            dim_unchanged=dim_unchanged,
+            skip_unchanged=skip_unchanged,
+        )
+        printers.print_tree_diff(
+            base,
+            final,
+            root_name=f"{cls.__name__} — CLI overrides",
+            dim_unchanged=dim_unchanged,
+            skip_unchanged=skip_unchanged,
+        )
 
     @pydantic.model_validator(mode="after")
     def check_mutually_exclusive_sets(self) -> Self:
