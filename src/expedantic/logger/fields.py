@@ -76,6 +76,17 @@ TSupportsAdd = TypeVar(
 )
 
 
+def _as_floats(values: list[Any]) -> list[float]:
+    """Coerce logged numeric values to plain floats.
+
+    The statistics module refuses to mix types it does not know how to
+    coerce, so a field fed both a numpy float32 and a numpy int64 would
+    raise. Anything exposing __float__ (numpy scalars, Decimal, Fraction)
+    is accepted here, matching what numpy used to do for these fields.
+    """
+    return [float(v) for v in values]
+
+
 class FieldBase(ABC, Generic[T]):
     """Abstract base class for all field types.
 
@@ -195,7 +206,7 @@ class MeanField(ReducibleFieldBase[float]):
         if not self.values:
             return None
         try:
-            return statistics.fmean(self.values)
+            return statistics.fmean(_as_floats(self.values))
         except (TypeError, ValueError) as e:
             raise ValueError(f"Cannot compute mean of non-numeric values: {e}")
 
@@ -271,7 +282,7 @@ class StdField(ReducibleFieldBase[float]):
             return None
         try:
             # pstdev, not stdev: numpy's std defaults to ddof=0 (population).
-            return float(statistics.pstdev(self.values))
+            return statistics.pstdev(_as_floats(self.values))
         except (TypeError, ValueError) as e:
             raise ValueError(
                 f"Cannot compute standard deviation of non-numeric values: {e}"
@@ -298,7 +309,7 @@ class MedianField(ReducibleFieldBase[float]):
         if not self.values:
             return None
         try:
-            return float(statistics.median(self.values))
+            return statistics.median(_as_floats(self.values))
         except (TypeError, ValueError) as e:
             raise ValueError(f"Cannot compute median of non-numeric values: {e}")
 

@@ -4,6 +4,7 @@ import statistics
 
 import pytest
 from datetime import datetime
+from decimal import Decimal
 from io import BytesIO
 
 from expedantic.logger import (
@@ -185,6 +186,35 @@ class TestFieldTypes:
         # Even number of values
         field.log(15.0)
         assert field.value == 12.5  # median of [10, 20, 5, 15] = 12.5
+
+    @pytest.mark.parametrize(
+        "field_cls, expected",
+        [(MeanField, 2.0), (StdField, statistics.pstdev([1.0, 2.0, 3.0])), (MedianField, 2.0)],
+    )
+    def test_numeric_fields_accept_mixed_numeric_types(self, field_cls, expected):
+        """Numeric fields must not care which numeric type each value is.
+
+        The stdlib statistics module refuses to mix types it cannot coerce
+        (e.g. Decimal with float), so these fields coerce to float first.
+        Regression test: mixing types used to raise ValueError.
+        """
+        field = field_cls()
+        field.log(Decimal("1"))
+        field.log(2.0)
+        field.log(3)
+
+        assert abs(field.value - expected) < 1e-10
+
+    def test_numeric_fields_accept_numpy_scalars(self):
+        """numpy scalars of differing dtypes are a common RL-loop input."""
+        np = pytest.importorskip("numpy")
+
+        field = StdField()
+        field.log(np.float32(1.5))
+        field.log(np.float64(2.5))
+        field.log(np.int64(3))
+
+        assert abs(field.value - float(np.std([1.5, 2.5, 3.0]))) < 1e-9
 
 
 class TestLoggerBase:
