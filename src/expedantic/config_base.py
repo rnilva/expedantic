@@ -413,15 +413,17 @@ class ConfigBase(pydantic.BaseModel, Mapping, ABC):
         return self
 
     def __getitem__(self, key: str):
-        if key not in self.model_fields:
+        # model_fields is read off the class, not the instance: instance access
+        # is deprecated in pydantic 2.11 and removed in v3.
+        if key not in type(self).model_fields:
             raise KeyError(f"Key '{key}' not found.")
         return self.__getattribute__(key)
 
     def __len__(self):
-        return len(self.model_fields)
+        return len(type(self).model_fields)
 
     def keys(self):
-        return self.model_fields.keys()
+        return type(self).model_fields.keys()
 
     # _expedantic_root: ClassVar[bool] = True
 

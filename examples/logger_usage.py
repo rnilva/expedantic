@@ -5,7 +5,19 @@ This example demonstrates the comprehensive logger module capabilities
 including different field types, training loops, and data export.
 """
 
-import numpy as np
+import random
+import tempfile
+from pathlib import Path
+
+# DataFrame export needs the optional 'dataframe' extra; the rest of the
+# example runs on a bare `pip install expedantic`.
+try:
+    import polars  # noqa: F401
+
+    HAS_POLARS = True
+except ImportError:
+    HAS_POLARS = False
+
 from expedantic.logger import (
     LoggerBase,
     Field,
@@ -51,14 +63,14 @@ def basic_logger_example():
         logger.current_lr.log(0.01 * (0.9**i))
 
         # Log multiple values for aggregation
-        loss_val = 1.0 - i * 0.1 + np.random.normal(0, 0.05)
+        loss_val = 1.0 - i * 0.1 + random.gauss(0, 0.05)
         logger.loss.log(loss_val)
         logger.min_loss.log(loss_val)
         logger.loss_std.log(loss_val)
         logger.loss_median.log(loss_val)
 
-        logger.best_acc.log(0.5 + i * 0.1 + np.random.normal(0, 0.02))
-        logger.total_time.log(0.5 + np.random.random() * 0.2)
+        logger.best_acc.log(0.5 + i * 0.1 + random.gauss(0, 0.02))
+        logger.total_time.log(0.5 + random.random() * 0.2)
 
         logger.messages.log(f"Step {i} completed")
 
@@ -71,9 +83,12 @@ def basic_logger_example():
     print("Final entry:", entry)
 
     # Convert to DataFrame
-    df = logger.to_dataframe()
-    print("\nDataFrame:")
-    print(df)
+    if HAS_POLARS:
+        df = logger.to_dataframe()
+        print("\nDataFrame:")
+        print(df)
+    else:
+        print("\nSkipping DataFrame export: pip install 'expedantic[dataframe]'")
 
     return logger
 
@@ -118,20 +133,20 @@ def training_logger_example():
             logger.iteration.log(iteration)
 
             # Simulate improving training metrics
-            train_loss = 2.0 - epoch * 0.3 - batch * 0.05 + np.random.normal(0, 0.1)
-            train_acc = 0.3 + epoch * 0.2 + batch * 0.05 + np.random.normal(0, 0.02)
+            train_loss = 2.0 - epoch * 0.3 - batch * 0.05 + random.gauss(0, 0.1)
+            train_acc = 0.3 + epoch * 0.2 + batch * 0.05 + random.gauss(0, 0.02)
 
             logger.train_loss.log(max(0.1, train_loss))  # Ensure positive loss
             logger.train_acc.log(min(1.0, max(0.0, train_acc)))  # Clamp accuracy
 
             # Simulate timing
-            logger.epoch_time.log(0.5 + np.random.random() * 0.3)
-            logger.memory_usage.log(1000 + np.random.random() * 200)  # MB
+            logger.epoch_time.log(0.5 + random.random() * 0.3)
+            logger.memory_usage.log(1000 + random.random() * 200)  # MB
 
         # Validation phase
         for val_batch in range(2):  # 2 validation batches
-            val_loss = 1.8 - epoch * 0.25 + np.random.normal(0, 0.05)
-            val_acc = 0.4 + epoch * 0.25 + np.random.normal(0, 0.03)
+            val_loss = 1.8 - epoch * 0.25 + random.gauss(0, 0.05)
+            val_acc = 0.4 + epoch * 0.25 + random.gauss(0, 0.03)
 
             logger.val_loss.log(max(0.1, val_loss))
             logger.val_acc.log(min(1.0, max(0.0, val_acc)))
@@ -157,8 +172,12 @@ def training_logger_example():
     print(f"\nTraining completed! Total epochs logged: {len(logger)}")
 
     # Export to file
-    logger.save("training_log.ipc")
-    print("Results saved to training_log.ipc")
+    if HAS_POLARS:
+        out = Path(tempfile.gettempdir()) / "training_log.ipc"
+        logger.save(out)
+        print(f"Results saved to {out}")
+    else:
+        print("Skipping file export: pip install 'expedantic[dataframe]'")
 
     return logger
 
@@ -197,23 +216,24 @@ def custom_logger_example():
         # Simulate processing batches within each file
         for batch in range(3):
             # Processing metrics
-            records = np.random.randint(1000, 5000)
-            proc_time = records * 0.001 + np.random.normal(0, 0.1)
+            # randrange, not randint: numpy's randint upper bound is exclusive.
+            records = random.randrange(1000, 5000)
+            proc_time = records * 0.001 + random.gauss(0, 0.1)
 
             logger.records_processed.log(records)
             logger.processing_time.log(max(0.01, proc_time))
-            logger.memory_peak.log(500 + np.random.random() * 300)
+            logger.memory_peak.log(500 + random.random() * 300)
 
             # Quality metrics
-            error_rate = max(0, np.random.normal(0.02, 0.01))  # ~2% error rate
+            error_rate = max(0, random.gauss(0.02, 0.01))  # ~2% error rate
             logger.error_rate.log(error_rate)
             logger.success_rate.log(1.0 - error_rate)
 
             # Simulate some errors and warnings
-            if np.random.random() < 0.3:  # 30% chance of error
+            if random.random() < 0.3:  # 30% chance of error
                 logger.errors.log(f"Processing error in {file_name} batch {batch}")
 
-            if np.random.random() < 0.5:  # 50% chance of warning
+            if random.random() < 0.5:  # 50% chance of warning
                 logger.warnings.log("warning")  # Value doesn't matter for CountField
 
         # Log completion of each file
