@@ -125,6 +125,8 @@ class TestLoggerColumnConsistency:
     SAME keys — in particular ``_logger`` must appear in both or neither."""
 
     def test_filesink_and_dataframe_have_same_keys(self):
+        pytest.importorskip("polars", reason="requires the 'dataframe' extra")
+
         class ConsistencyLogger(LoggerBase):
             step: Field[int]
             loss: MeanField

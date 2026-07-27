@@ -1,7 +1,8 @@
 """Comprehensive test suite for the logger module."""
 
+import statistics
+
 import pytest
-import numpy as np
 from datetime import datetime
 from io import BytesIO
 
@@ -163,7 +164,7 @@ class TestFieldTypes:
         field.log(12.0)
         field.log(8.0)
         # std of [10, 12, 8] ≈ 1.63
-        assert abs(field.value - np.std([10.0, 12.0, 8.0])) < 1e-10
+        assert abs(field.value - statistics.pstdev([10.0, 12.0, 8.0])) < 1e-10
 
     def test_median_field(self):
         """Test MedianField computes median correctly."""
@@ -259,6 +260,7 @@ class TestLoggerBase:
 
     def test_to_dataframe(self):
         """Test DataFrame conversion."""
+        pytest.importorskip("polars", reason="requires the 'dataframe' extra")
 
         class TestLogger(LoggerBase):
             step: Field[int]
@@ -290,6 +292,7 @@ class TestLoggerBase:
 
     def test_save_functionality(self):
         """Test saving to BytesIO buffer."""
+        pytest.importorskip("polars", reason="requires the 'dataframe' extra")
 
         class TestLogger(LoggerBase):
             value: Field[int]

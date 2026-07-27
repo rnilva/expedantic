@@ -4,6 +4,7 @@ This module contains all the field implementations that handle different
 aggregation patterns for logged data.
 """
 
+import statistics
 import threading
 from abc import ABC, abstractmethod
 from datetime import date, datetime, time, timedelta
@@ -16,8 +17,6 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
 )
-
-import numpy as np
 
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparisonT, SupportsAdd
@@ -196,7 +195,7 @@ class MeanField(ReducibleFieldBase[float]):
         if not self.values:
             return None
         try:
-            return np.mean(self.values).item()
+            return statistics.fmean(self.values)
         except (TypeError, ValueError) as e:
             raise ValueError(f"Cannot compute mean of non-numeric values: {e}")
 
@@ -271,7 +270,8 @@ class StdField(ReducibleFieldBase[float]):
         if not self.values:
             return None
         try:
-            return np.std(self.values).item()
+            # pstdev, not stdev: numpy's std defaults to ddof=0 (population).
+            return float(statistics.pstdev(self.values))
         except (TypeError, ValueError) as e:
             raise ValueError(
                 f"Cannot compute standard deviation of non-numeric values: {e}"
@@ -298,7 +298,7 @@ class MedianField(ReducibleFieldBase[float]):
         if not self.values:
             return None
         try:
-            return np.median(self.values).item()
+            return float(statistics.median(self.values))
         except (TypeError, ValueError) as e:
             raise ValueError(f"Cannot compute median of non-numeric values: {e}")
 

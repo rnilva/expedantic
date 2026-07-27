@@ -9,6 +9,13 @@
 pip install expedantic
 ```
 
+The config parser and the logger both work with this base install. DataFrame
+export (`LoggerBase.to_dataframe()` and `.save()`) additionally needs Polars:
+
+```
+pip install 'expedantic[dataframe]'
+```
+
 ## Basic Usage
 
 ```python
@@ -184,7 +191,7 @@ Expedantic now includes a comprehensive type-safe logging framework designed for
 - **Type-safe field system** with 8 different field types for various aggregation patterns
 - **Automatic timestamping** for all log entries  
 - **Field reset** after flush to prevent data leakage between entries
-- **DataFrame export** capabilities with Polars integration
+- **DataFrame export** capabilities with Polars integration (optional `dataframe` extra)
 - **Input validation** and comprehensive error handling
 
 ### Field Types

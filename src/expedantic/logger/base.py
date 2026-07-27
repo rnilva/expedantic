@@ -8,12 +8,29 @@ import inspect
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import get_type_hints, get_origin
-
-import polars as pl
+from typing import TYPE_CHECKING, get_type_hints, get_origin
 
 from .fields import FieldBase, SupportedTypes
 from .sinks import SinkProtocol
+
+if TYPE_CHECKING:
+    import polars as pl
+
+
+def _require_polars():
+    """Import polars on demand, with an actionable error if it is missing.
+
+    polars is an optional dependency: it is only needed by the DataFrame and
+    Arrow IPC helpers, not by logging itself.
+    """
+    try:
+        import polars as pl
+    except ImportError as e:  # pragma: no cover - depends on the environment
+        raise ImportError(
+            "polars is required for DataFrame export but is not installed. "
+            "Install it with: pip install 'expedantic[dataframe]'"
+        ) from e
+    return pl
 
 
 class LoggerBase:
@@ -198,13 +215,17 @@ class LoggerBase:
 
         return items
 
-    def to_dataframe(self) -> pl.DataFrame:
+    def to_dataframe(self) -> "pl.DataFrame":
         """Convert all logged entries to a Polars DataFrame.
+
+        Requires the optional ``dataframe`` extra (``pip install
+        'expedantic[dataframe]'``).
 
         Returns:
             pl.DataFrame: A DataFrame with one row per flush() call,
                          columns for each field, and a '_timestamp' column
         """
+        pl = _require_polars()
         return pl.DataFrame(self.data)
 
     def save(self, path: str | Path | BytesIO):
