@@ -15,6 +15,7 @@ project-owned class method:
 
 ```python
 from pathlib import Path
+from typing import ClassVar
 from typing_extensions import Self
 
 from pydantic import BaseModel, model_validator
@@ -44,7 +45,7 @@ class DatasetSource(BaseModel):
 
 
 class Run(RunBase[Config]):
-    _path = "results/register/runs.jsonl"
+    _path: ClassVar[Path] = Path("results/register/runs.jsonl")
 
     tag: str
     seed: int
@@ -171,6 +172,9 @@ would require Python 3.12.
 Conceptually:
 
 ```python
+from abc import ABC, abstractmethod
+from typing import Generic, TypeVar
+
 C = TypeVar("C", bound=ConfigBase)
 
 
@@ -208,6 +212,11 @@ namespace; it is not duplicated under the promoted declaration fields.
 `from_config()` is the documented constructor. It returns a fully validated,
 frozen declaration. Direct BaseModel construction may remain technically
 possible, but lifecycle examples and project integrations use `from_config()`.
+
+Freezing a Pydantic model is shallow, while `ConfigBase` instances are normally
+mutable. During run-model validation, `RunBase` therefore takes a deep model copy
+of `config`, including its private parser-provenance metadata. Mutating the
+caller's original config after `from_config()` cannot change the run declaration.
 
 Public model fields cannot be assigned after construction. Only private
 lifecycle state changes. This prevents in-memory edits from silently diverging
@@ -257,7 +266,7 @@ class EnvironmentContract(BaseModel):
 
 
 class FlowfieldRun(RunBase[RunConfig]):
-    _path = "results/registry/runs.jsonl"
+    _path: ClassVar[Path] = Path("results/registry/runs.jsonl")
 
     tag: str
     seed: int
@@ -314,16 +323,16 @@ def execute() -> Result:
     return result
 ```
 
-Each decorated invocation receives a fresh run UUID and fresh lifecycle state.
-The recreation hook calls:
+Each decorated invocation receives a fresh run UUID and fresh private lifecycle
+state, while reusing a deep copy of the same immutable declaration. This follows
+normal Python decorator semantics: the declaration is fixed when the decorator
+expression is evaluated. `from_config()` is not called a second time behind the
+user's back.
 
-```python
-type(template).from_config(template.config)
-```
-
-Consequently, project capture and validation in `from_config()` rerun for every
-invocation. No function-argument inference or binding language is required.
-Function metadata is preserved with `functools.wraps`.
+No function-argument inference or binding language is required. When provenance
+must be resolved immediately before each execution, construct the run in a
+context manager at that point rather than retaining a long-lived decorator
+template. Function metadata is preserved with `functools.wraps`.
 
 Async context managers and decorators are out of scope for the first version.
 
@@ -529,7 +538,7 @@ The first version will not:
 - install signal or global exception hooks;
 - monitor liveness or infer killed/crashed status;
 - resume or retry work;
-- mutate the run declaration after start;
+- alter the immutable run declaration after construction;
 - log time-series metrics;
 - upload or manage artefacts;
 - provide remote backends or synchronisation;
@@ -546,7 +555,7 @@ not a workflow framework or experiment platform.
 
 ```python
 class FlowfieldRun(RunBase[RunConfig]):
-    _path = "results/registry/runs.jsonl"
+    _path: ClassVar[Path] = Path("results/registry/runs.jsonl")
 
     tag: str
     seed: int
@@ -592,8 +601,8 @@ fields and surfacing old ID collisions.
 4. `from_config()` can construct and validate nested project provenance.
 5. The same run shape supports context-manager, instance-decorator, and explicit
    lifecycle modes without another public handle.
-6. Repeated decorated calls recreate the run through `from_config()` and receive
-   distinct UUIDs.
+6. Repeated decorated calls clone the same immutable declaration, reset private
+   lifecycle state, and receive distinct UUIDs.
 7. Normal exit, failure, and interruption produce the specified terminal status
    without suppressing application exceptions.
 8. The start event separates declaration, configuration, and automatic
