@@ -5,15 +5,20 @@
 
 ## Installation
 
-```
-pip install expedantic
+The repository currently contains newer functionality than the published PyPI
+package. For the time being, install Expedantic from a source checkout:
+
+```shell
+git clone --recurse-submodules https://github.com/rnilva/expedantic.git
+cd expedantic
+python -m pip install --editable .
 ```
 
 The config parser and the logger both work with this base install. DataFrame
 export (`LoggerBase.to_dataframe()` and `.save()`) additionally needs Polars:
 
-```
-pip install 'expedantic[dataframe]'
+```shell
+python -m pip install --editable ".[dataframe]"
 ```
 
 ## Basic Usage
@@ -306,5 +311,4 @@ for i in range(100):
         entry = logger.flush()
         print(f"Step {entry['step']}: avg={entry['value']:.3f}")
 ```
-
 
