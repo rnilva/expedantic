@@ -101,4 +101,4 @@ jobs:
         run: |
           python -m venv /tmp/expedantic-wheel-test
           /tmp/expedantic-wheel-test/bin/python -m pip install dist/*.whl
-          /tmp/expedantic-wheel-test/bin/python -c "from expedantic import ConfigBase, LoggerBase; print(ConfigBase, LoggerBase)"
+          /tmp/expedantic-wheel-test/bin/python -c "from expedantic import ConfigBase; from expedantic.logger import LoggerBase; print(ConfigBase, LoggerBase)"

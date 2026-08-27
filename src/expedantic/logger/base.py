@@ -8,7 +8,7 @@ import inspect
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, get_type_hints, get_origin
+from typing import TYPE_CHECKING, get_origin
 
 from .fields import FieldBase, SupportedTypes
 from .sinks import SinkProtocol
@@ -134,33 +134,30 @@ class LoggerBase:
     def _resolve_schema(self) -> dict:
         """Resolve the field schema from this class's (and its bases') annotations.
 
-        Type hints are resolved per-class so that ``from __future__ import annotations``
-        in a subclass module does not break resolution: each class's stringized
-        annotations (e.g. ``Field[int]``) are evaluated against *that* class's own
-        module globals (``sys.modules[cls.__module__].__dict__``), which is exactly the
-        namespace where the subclass imported its field types. Resolving against a single
-        merged namespace (the old ``get_type_hints(self)`` call) instead raised
-        ``NameError: name 'Field' is not defined`` whenever a subclass deferred its
-        annotations.
+        Annotations are resolved separately for each class. ``inspect.get_annotations``
+        ignores inherited annotations and evaluates each class against its own module
+        globals, so both stringized annotations and Python 3.14's deferred annotations
+        are handled without trying to resolve a base class in the subclass's namespace.
 
         Bases are walked in reverse MRO order so the most-derived class's annotation
         wins on name collisions, matching normal attribute-override semantics.
         """
         schema: dict = {}
         for cls in reversed(type(self).__mro__):
-            if cls is object or "__annotations__" not in cls.__dict__:
+            if cls is object:
                 continue
             try:
-                hints = get_type_hints(cls)
+                hints = inspect.get_annotations(cls, eval_str=True)
             except Exception:
-                # Fall back to a per-class best effort; skip a class whose hints
-                # cannot be resolved rather than failing the whole logger.
+                # Skip a class whose hints cannot be resolved rather than failing
+                # the whole logger. Other classes in the hierarchy remain usable.
                 continue
             for k, v in hints.items():
                 if k in ("_sinks", "_name"):  # Skip configuration attributes
                     continue
+                origin = get_origin(v)
                 if (inspect.isclass(v) and issubclass(v, FieldBase)) or (
-                    (o := get_origin(v)) is not None and issubclass(o, FieldBase)
+                    inspect.isclass(origin) and issubclass(origin, FieldBase)
                 ):
                     schema[k] = v
         return schema
